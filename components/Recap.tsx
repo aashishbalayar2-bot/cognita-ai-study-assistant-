@@ -4,9 +4,10 @@ import { UploadedFile, RecapData, KeyConcept, Flashcard } from '../types';
 import { generateRecap, generateMoreFlashcards } from '../services/geminiService';
 import { 
     SparklesIcon, XCircleIcon, ArrowPathIcon, ChevronDownIcon, 
-    ChevronLeftIcon, ChevronRightIcon, LightBulbIcon, ClipboardIcon, CheckIcon 
+    LightBulbIcon, ClipboardIcon, CheckIcon 
 } from './icons/Icons';
 import { saveToStorage, loadFromStorage } from '../utils/storageUtils';
+import FlashcardStudySession from './FlashcardStudySession';
 
 const KeyConceptItem: React.FC<{ item: KeyConcept }> = ({ item }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -29,102 +30,75 @@ const KeyConceptItem: React.FC<{ item: KeyConcept }> = ({ item }) => {
     );
 };
 
-const CardFlipper: React.FC<{ cards: Flashcard[]; cardType: 'qa' | 'definition' }> = ({ cards, cardType }) => {
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [isFlipped, setIsFlipped] = useState(false);
-
-    useEffect(() => {
-        setCurrentIndex(0);
-        setIsFlipped(false);
-    }, [cards]);
-
-    const handleNext = () => {
-        setIsFlipped(false);
-        setTimeout(() => setCurrentIndex((prev) => (prev + 1) % cards.length), 150);
-    };
-
-    const handlePrev = () => {
-        setIsFlipped(false);
-        setTimeout(() => setCurrentIndex((prev) => (prev - 1 + cards.length) % cards.length), 150);
-    };
-
-    if (!cards || cards.length === 0) {
-        return <p className="text-slate-400 text-center h-64 flex items-center justify-center font-medium">No {cardType === 'qa' ? 'questions' : 'definitions'} available.</p>;
-    }
-
-    const currentCard = cards[currentIndex];
-    if (!currentCard) return null;
-
-    return (
-        <div className="flex flex-col items-center">
-            <div className="w-full max-w-lg h-72 perspective-1000">
-                <div 
-                    className={`relative w-full h-full transform-style-preserve-3d transition-transform duration-500 ${isFlipped ? 'rotate-y-180' : ''}`}
-                    onClick={() => setIsFlipped(!isFlipped)}
-                >
-                    {/* Front of card */}
-                    <div className="absolute w-full h-full backface-hidden bg-white border-2 border-slate-200 rounded-3xl p-8 flex flex-col justify-center items-center text-center cursor-pointer shadow-sm hover:border-sky-300 transition-colors">
-                        <p className="text-xs font-extrabold text-sky-500 uppercase tracking-widest mb-4">{cardType === 'qa' ? 'Question' : 'Term'}</p>
-                        <p className="text-2xl font-bold text-slate-800">{currentCard.front}</p>
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wide mt-auto pt-4">Tap to flip</p>
-                    </div>
-                    {/* Back of card */}
-                    <div className="absolute w-full h-full backface-hidden bg-sky-50 border-2 border-sky-200 rounded-3xl p-8 flex flex-col justify-center items-center text-center cursor-pointer rotate-y-180 shadow-sm">
-                         <p className="text-xs font-extrabold text-sky-500 uppercase tracking-widest mb-4">{cardType === 'qa' ? 'Answer' : 'Definition'}</p>
-                        <p className="text-xl font-medium text-slate-700">{currentCard.back}</p>
-                        <p className="text-xs text-sky-400 font-bold uppercase tracking-wide mt-auto pt-4">Tap to flip back</p>
-                    </div>
-                </div>
-            </div>
-            <div className="mt-8 flex items-center justify-between w-full max-w-lg">
-                <button onClick={handlePrev} className="p-3 rounded-2xl bg-white border-2 border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors active:translate-y-0.5">
-                    <ChevronLeftIcon className="w-6 h-6" />
-                </button>
-                <span className="text-slate-400 font-bold text-sm uppercase tracking-widest">{currentIndex + 1} / {cards.length}</span>
-                <button onClick={handleNext} className="p-3 rounded-2xl bg-white border-2 border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors active:translate-y-0.5">
-                    <ChevronRightIcon className="w-6 h-6" />
-                </button>
-            </div>
-        </div>
-    );
-};
-
-
 const FlashcardViewer: React.FC<{ flashcards: Flashcard[] }> = ({ flashcards }) => {
-    const [activeTab, setActiveTab] = useState<'qa' | 'definition'>('qa');
+    const [activeTab, setActiveTab] = useState<'qa' | 'definition' | 'problem' | 'long_answer'>('qa');
 
     const qaCards = useMemo(() => flashcards.filter(f => f.type === 'qa'), [flashcards]);
     const definitionCards = useMemo(() => flashcards.filter(f => f.type === 'definition'), [flashcards]);
+    const problemCards = useMemo(() => flashcards.filter(f => f.type === 'problem'), [flashcards]);
+    const longAnswerCards = useMemo(() => flashcards.filter(f => f.type === 'long_answer'), [flashcards]);
 
-    const activeCards = activeTab === 'qa' ? qaCards : definitionCards;
+    const activeCards = useMemo(() => {
+        if (activeTab === 'qa') return qaCards;
+        if (activeTab === 'definition') return definitionCards;
+        if (activeTab === 'problem') return problemCards;
+        return longAnswerCards;
+    }, [activeTab, qaCards, definitionCards, problemCards, longAnswerCards]);
     
+    // Auto-switch tabs if current is empty but others have content
     useEffect(() => {
         if (activeCards.length === 0) {
-            if (activeTab === 'qa' && definitionCards.length > 0) {
-                setActiveTab('definition');
-            } else if (activeTab === 'definition' && qaCards.length > 0) {
-                setActiveTab('qa');
+            if (activeTab === 'qa') {
+                if (definitionCards.length > 0) setActiveTab('definition');
+                else if (problemCards.length > 0) setActiveTab('problem');
+                else if (longAnswerCards.length > 0) setActiveTab('long_answer');
+            } else if (activeTab === 'definition') {
+                 if (problemCards.length > 0) setActiveTab('problem');
+                 else if (longAnswerCards.length > 0) setActiveTab('long_answer');
+                 else if (qaCards.length > 0) setActiveTab('qa');
+            } else if (activeTab === 'problem') {
+                 if (longAnswerCards.length > 0) setActiveTab('long_answer');
+                 else if (qaCards.length > 0) setActiveTab('qa');
+                 else if (definitionCards.length > 0) setActiveTab('definition');
+            } else if (activeTab === 'long_answer') {
+                 if (qaCards.length > 0) setActiveTab('qa');
+                 else if (definitionCards.length > 0) setActiveTab('definition');
+                 else if (problemCards.length > 0) setActiveTab('problem');
             }
         }
-    }, [qaCards, definitionCards, activeTab, activeCards.length]);
+    }, [qaCards, definitionCards, problemCards, longAnswerCards, activeTab, activeCards.length]);
 
     return (
         <div>
-            <div className="flex justify-center mb-8 gap-4">
+            <div className="flex justify-center mb-8 gap-2 sm:gap-4 flex-wrap">
                 <button 
                     onClick={() => setActiveTab('qa')} 
-                    className={`px-6 py-2.5 font-bold rounded-xl border-2 border-b-4 active:border-b-2 active:translate-y-0.5 transition-all ${activeTab === 'qa' ? 'bg-sky-500 border-sky-700 text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                    className={`px-4 sm:px-6 py-2.5 font-bold rounded-xl border-2 border-b-4 active:border-b-2 active:translate-y-0.5 transition-all text-xs sm:text-sm ${activeTab === 'qa' ? 'bg-sky-500 border-sky-700 text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
                 >
                     QUESTIONS
                 </button>
                 <button 
                     onClick={() => setActiveTab('definition')}
-                    className={`px-6 py-2.5 font-bold rounded-xl border-2 border-b-4 active:border-b-2 active:translate-y-0.5 transition-all ${activeTab === 'definition' ? 'bg-sky-500 border-sky-700 text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                    className={`px-4 sm:px-6 py-2.5 font-bold rounded-xl border-2 border-b-4 active:border-b-2 active:translate-y-0.5 transition-all text-xs sm:text-sm ${activeTab === 'definition' ? 'bg-sky-500 border-sky-700 text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
                 >
                     DEFINITIONS
                 </button>
+                <button 
+                    onClick={() => setActiveTab('problem')}
+                    className={`px-4 sm:px-6 py-2.5 font-bold rounded-xl border-2 border-b-4 active:border-b-2 active:translate-y-0.5 transition-all text-xs sm:text-sm ${activeTab === 'problem' ? 'bg-sky-500 border-sky-700 text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                >
+                    PROBLEMS
+                </button>
+                <button 
+                    onClick={() => setActiveTab('long_answer')}
+                    className={`px-4 sm:px-6 py-2.5 font-bold rounded-xl border-2 border-b-4 active:border-b-2 active:translate-y-0.5 transition-all text-xs sm:text-sm ${activeTab === 'long_answer' ? 'bg-sky-500 border-sky-700 text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                >
+                    LONG ANSWERS
+                </button>
             </div>
-            <CardFlipper cards={activeCards} cardType={activeTab} />
+            
+            {/* New Study Session Component */}
+            <FlashcardStudySession cards={activeCards} cardType={activeTab} />
         </div>
     )
 };
@@ -276,7 +250,7 @@ const Recap: React.FC<{ files: UploadedFile[]; subjectId: string }> = ({ files, 
 
             {/* Flashcards Section */}
             <div>
-                <h2 className="text-2xl font-extrabold mb-8 text-center text-slate-800">Test Your Knowledge</h2>
+                <h2 className="text-2xl font-extrabold mb-8 text-center text-slate-800">Practice Mode</h2>
                 <FlashcardViewer flashcards={recapData.flashcards} />
                 <div className="text-center mt-8">
                     <button 

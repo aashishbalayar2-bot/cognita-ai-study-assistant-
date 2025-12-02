@@ -1,4 +1,3 @@
-
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { decodeAudioData } from '../utils/audioUtils';
 
@@ -21,8 +20,20 @@ export const useAudioPlayer = ({ sampleRate }: UseAudioPlayerProps) => {
         };
     }, [sampleRate]);
 
+    const resume = useCallback(() => {
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+            audioContextRef.current.resume();
+        }
+    }, []);
+
     const play = useCallback(async (audioData: Uint8Array) => {
         if (!audioContextRef.current) return;
+        
+        // Ensure context is running (fixes autoplay blocks)
+        if (audioContextRef.current.state === 'suspended') {
+            await audioContextRef.current.resume();
+        }
+
         if (sourceNodeRef.current) {
             sourceNodeRef.current.stop();
         }
@@ -50,5 +61,5 @@ export const useAudioPlayer = ({ sampleRate }: UseAudioPlayerProps) => {
         }
     }, []);
 
-    return { isPlaying, play, stop };
+    return { isPlaying, play, stop, resume };
 };

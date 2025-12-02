@@ -5,9 +5,9 @@ import { generateDailyRecap } from '../services/geminiService';
 import PodcastPlayer from './PodcastPlayer';
 import { 
     SparklesIcon, ChevronDownIcon, DocumentTextIcon, XCircleIcon, ArrowPathIcon, BookOpenIcon,
-    LinkIcon, LightBulbIcon, ClipboardIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon,
-    CheckCircleIcon
+    LinkIcon, LightBulbIcon, ClipboardIcon, CheckIcon, CheckCircleIcon
 } from './icons/Icons';
+import FlashcardStudySession from './FlashcardStudySession';
 
 
 // --- Reusable Components for Results View ---
@@ -32,79 +32,42 @@ const KeyConceptItem: React.FC<{ item: KeyConcept }> = ({ item }) => {
     );
 };
 
-const CardFlipper: React.FC<{ cards: Flashcard[]; cardType: 'qa' | 'definition' }> = ({ cards, cardType }) => {
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [isFlipped, setIsFlipped] = useState(false);
-
-    useEffect(() => {
-        setCurrentIndex(0);
-        setIsFlipped(false);
-    }, [cards]);
-
-    const handleNext = () => {
-        setIsFlipped(false);
-        setTimeout(() => setCurrentIndex((prev) => (prev + 1) % cards.length), 150);
-    };
-
-    const handlePrev = () => {
-        setIsFlipped(false);
-        setTimeout(() => setCurrentIndex((prev) => (prev - 1 + cards.length) % cards.length), 150);
-    };
-
-    if (!cards || cards.length === 0) {
-        return <p className="text-center text-slate-400 h-56 flex items-center justify-center font-bold">No cards available.</p>;
-    }
-    
-    const currentCard = cards[currentIndex];
-    if (!currentCard) return null;
-
-    return (
-        <div className="flex flex-col items-center">
-            <div className="w-full max-w-lg h-64 perspective-1000">
-                <div 
-                    className={`relative w-full h-full transform-style-preserve-3d transition-transform duration-500 ${isFlipped ? 'rotate-y-180' : ''}`}
-                    onClick={() => setIsFlipped(!isFlipped)}
-                >
-                    <div className="absolute w-full h-full backface-hidden bg-white border-2 border-slate-200 rounded-3xl p-6 flex flex-col justify-center items-center text-center cursor-pointer shadow-sm">
-                        <p className="text-xs font-extrabold text-sky-500 uppercase tracking-widest mb-2">{cardType === 'qa' ? 'Question' : 'Term'}</p>
-                        <p className="text-lg font-bold text-slate-800">{currentCard.front}</p>
-                    </div>
-                    <div className="absolute w-full h-full backface-hidden bg-sky-50 border-2 border-sky-200 rounded-3xl p-6 flex flex-col justify-center items-center text-center cursor-pointer rotate-y-180 shadow-sm">
-                         <p className="text-xs font-extrabold text-sky-500 uppercase tracking-widest mb-2">{cardType === 'qa' ? 'Answer' : 'Definition'}</p>
-                        <p className="text-md font-medium text-slate-700">{currentCard.back}</p>
-                    </div>
-                </div>
-            </div>
-            <div className="mt-4 flex items-center justify-between w-full max-w-lg">
-                <button onClick={handlePrev} className="p-2 rounded-xl bg-white border-2 border-slate-200 text-slate-400 hover:bg-slate-50 transition-colors">
-                    <ChevronLeftIcon className="w-5 h-5" />
-                </button>
-                <span className="text-slate-400 font-bold text-sm uppercase tracking-wide">{currentIndex + 1} / {cards.length}</span>
-                <button onClick={handleNext} className="p-2 rounded-xl bg-white border-2 border-slate-200 text-slate-400 hover:bg-slate-50 transition-colors">
-                    <ChevronRightIcon className="w-5 h-5" />
-                </button>
-            </div>
-        </div>
-    );
-};
-
 const FlashcardViewer: React.FC<{ flashcards: Flashcard[] }> = ({ flashcards }) => {
-    const [activeTab, setActiveTab] = useState<'qa' | 'definition'>('qa');
+    const [activeTab, setActiveTab] = useState<'qa' | 'definition' | 'problem' | 'long_answer'>('qa');
 
     const qaCards = useMemo(() => flashcards.filter(f => f.type === 'qa'), [flashcards]);
     const definitionCards = useMemo(() => flashcards.filter(f => f.type === 'definition'), [flashcards]);
+    const problemCards = useMemo(() => flashcards.filter(f => f.type === 'problem'), [flashcards]);
+    const longAnswerCards = useMemo(() => flashcards.filter(f => f.type === 'long_answer'), [flashcards]);
     
-    const activeCards = activeTab === 'qa' ? qaCards : definitionCards;
+    const activeCards = useMemo(() => {
+        if (activeTab === 'qa') return qaCards;
+        if (activeTab === 'definition') return definitionCards;
+        if (activeTab === 'problem') return problemCards;
+        return longAnswerCards;
+    }, [activeTab, qaCards, definitionCards, problemCards, longAnswerCards]);
     
     useEffect(() => {
         if (activeCards.length === 0) {
-            if (activeTab === 'qa' && definitionCards.length > 0) {
-                setActiveTab('definition');
-            } else if (activeTab === 'definition' && qaCards.length > 0) {
-                setActiveTab('qa');
+            if (activeTab === 'qa') {
+                if (definitionCards.length > 0) setActiveTab('definition');
+                else if (problemCards.length > 0) setActiveTab('problem');
+                else if (longAnswerCards.length > 0) setActiveTab('long_answer');
+            } else if (activeTab === 'definition') {
+                 if (problemCards.length > 0) setActiveTab('problem');
+                 else if (longAnswerCards.length > 0) setActiveTab('long_answer');
+                 else if (qaCards.length > 0) setActiveTab('qa');
+            } else if (activeTab === 'problem') {
+                 if (longAnswerCards.length > 0) setActiveTab('long_answer');
+                 else if (qaCards.length > 0) setActiveTab('qa');
+                 else if (definitionCards.length > 0) setActiveTab('definition');
+            } else if (activeTab === 'long_answer') {
+                 if (qaCards.length > 0) setActiveTab('qa');
+                 else if (definitionCards.length > 0) setActiveTab('definition');
+                 else if (problemCards.length > 0) setActiveTab('problem');
             }
         }
-    }, [qaCards, definitionCards, activeTab, activeCards.length]);
+    }, [qaCards, definitionCards, problemCards, longAnswerCards, activeTab, activeCards.length]);
 
 
     if (!flashcards || flashcards.length === 0) {
@@ -113,21 +76,34 @@ const FlashcardViewer: React.FC<{ flashcards: Flashcard[] }> = ({ flashcards }) 
 
     return (
         <div>
-            <div className="flex justify-center border-b-2 border-slate-100 mb-4">
+            <div className="flex justify-center border-b-2 border-slate-100 mb-4 overflow-x-auto">
                 <button 
                     onClick={() => setActiveTab('qa')} 
-                    className={`px-4 py-2 text-sm font-bold border-b-4 -mb-0.5 transition-colors ${activeTab === 'qa' ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                    className={`px-4 py-2 text-sm font-bold border-b-4 -mb-0.5 transition-colors whitespace-nowrap ${activeTab === 'qa' ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
                 >
                     QUESTIONS
                 </button>
                 <button 
                     onClick={() => setActiveTab('definition')}
-                    className={`px-4 py-2 text-sm font-bold border-b-4 -mb-0.5 transition-colors ${activeTab === 'definition' ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                    className={`px-4 py-2 text-sm font-bold border-b-4 -mb-0.5 transition-colors whitespace-nowrap ${activeTab === 'definition' ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
                 >
                     DEFINITIONS
                 </button>
+                <button 
+                    onClick={() => setActiveTab('problem')}
+                    className={`px-4 py-2 text-sm font-bold border-b-4 -mb-0.5 transition-colors whitespace-nowrap ${activeTab === 'problem' ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    PROBLEMS
+                </button>
+                <button 
+                    onClick={() => setActiveTab('long_answer')}
+                    className={`px-4 py-2 text-sm font-bold border-b-4 -mb-0.5 transition-colors whitespace-nowrap ${activeTab === 'long_answer' ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    LONG ANSWERS
+                </button>
             </div>
-            <CardFlipper cards={activeCards} cardType={activeTab} />
+             {/* New Study Session Component */}
+             <FlashcardStudySession cards={activeCards} cardType={activeTab} />
         </div>
     );
 };

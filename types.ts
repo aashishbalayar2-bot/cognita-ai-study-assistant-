@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export interface UploadedFile {
@@ -7,7 +8,7 @@ export interface UploadedFile {
 }
 
 export interface Flashcard {
-  type: 'qa' | 'definition';
+  type: 'qa' | 'definition' | 'problem' | 'long_answer';
   front: string;
   back: string;
 }
@@ -65,4 +66,40 @@ export interface DailyRecapData {
   flashcards: Flashcard[];
   quiz: QuizQuestion[];
   visualAidPrompt: string;
+}
+
+export interface TeachingReport {
+    score: number;
+    feedback: string;
+    clarityRating: 'Low' | 'Medium' | 'High';
+    missedPoints: string[];
+}
+
+// --- QUEST MODE TYPES ---
+
+export interface QuestChallenge {
+    type: 'multiple_choice' | 'ordering';
+    question: string; // The challenge presented in the story context
+    options: string[]; // Options for MC or steps for Ordering
+    correctAnswer: string; // String for MC
+}
+
+export interface QuestScene {
+    conceptName: string; // New: The topic being taught
+    conceptExplanation: string; // New: The "Lecture" content
+    narrative: string; // The story text
+    visualPrompt: string; // Prompt for a background image (optional implementation)
+    challenges: QuestChallenge[]; // UPDATED: Multiple questions per scene
+    conceptUnlocked?: string; // If they pass, they get this item/concept
+    hpChange?: number; // -1 if wrong last time
+    xpGain?: number; // +XP if correct
+}
+
+export interface QuestState {
+    health: number;
+    maxHealth: number;
+    xp: number;
+    level: number;
+    inventory: string[]; // Concepts collected
+    isGameOver: boolean;
 }

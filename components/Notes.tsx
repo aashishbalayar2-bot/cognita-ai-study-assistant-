@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { UploadedFile } from '../types';
 import { generateNotes } from '../services/geminiService';
-import { SparklesIcon, XCircleIcon, ArrowPathIcon, DocumentTextIcon } from './icons/Icons';
+import { SparklesIcon, XCircleIcon, ArrowPathIcon, DocumentTextIcon, ClipboardDocumentListIcon, BookOpenIcon } from './icons/Icons';
 import PodcastPlayer from './PodcastPlayer';
 import { saveToStorage, loadFromStorage } from '../utils/storageUtils';
 
@@ -42,27 +41,38 @@ const Notes: React.FC<NotesProps> = ({ files, subjectId }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCached, setIsCached] = useState(false);
+  const [activeStyle, setActiveStyle] = useState<'cornell' | 'bullet'>('cornell');
 
-  const fetchNotes = useCallback(async (forceRefresh = false) => {
+  // Load from cache based on style, or fetch new
+  const fetchNotes = useCallback(async (style: 'cornell' | 'bullet', forceRefresh = false) => {
     setIsLoading(true);
     setError(null);
     setNotes('');
+    const cacheKey = style === 'cornell' ? 'notes_cornell' : 'notes_bullet';
     
     if (!forceRefresh) {
-        const cachedNotes = loadFromStorage<string>(subjectId, 'notes');
+        const cachedNotes = loadFromStorage<string>(subjectId, cacheKey);
+        // Fallback for legacy 'notes' key if using Cornell style
+        const legacyNotes = style === 'cornell' ? loadFromStorage<string>(subjectId, 'notes') : null;
+
         if (cachedNotes) {
             setNotes(cachedNotes);
             setIsCached(true);
             setIsLoading(false);
             return;
+        } else if (legacyNotes && style === 'cornell') {
+             setNotes(legacyNotes);
+             setIsCached(true);
+             setIsLoading(false);
+             return;
         }
     }
 
     setIsCached(false);
     try {
-      const generatedNotes = await generateNotes(files);
+      const generatedNotes = await generateNotes(files, style);
       setNotes(generatedNotes);
-      saveToStorage(subjectId, 'notes', generatedNotes);
+      saveToStorage(subjectId, cacheKey, generatedNotes);
     } catch (err) {
       console.error(err);
       setError('An error occurred while generating the notes.');
@@ -71,20 +81,28 @@ const Notes: React.FC<NotesProps> = ({ files, subjectId }) => {
     }
   }, [files, subjectId]);
 
+  // Initial load
   useEffect(() => {
-    fetchNotes();
-  }, [fetchNotes]);
+    fetchNotes(activeStyle);
+  }, [fetchNotes, activeStyle]);
+
+  const handleStyleChange = (style: 'cornell' | 'bullet') => {
+      setActiveStyle(style);
+      // Logic handled in useEffect due to activeStyle dependency
+  };
 
   const handleRegenerate = () => {
-      fetchNotes(true);
+      fetchNotes(activeStyle, true);
   };
 
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center">
         <SparklesIcon className="w-16 h-16 text-sky-500 animate-pulse mb-4" />
-        <h3 className="text-xl font-bold text-slate-800">Crafting your revision notes...</h3>
-        <p className="text-slate-400 font-medium">Our AI is summarizing and structuring the key points for you.</p>
+        <h3 className="text-xl font-bold text-slate-800">
+            {activeStyle === 'cornell' ? 'Structuring Cornell Notes...' : 'Synthesizing Rapid Revision Chunks...'}
+        </h3>
+        <p className="text-slate-400 font-medium">Our AI is analyzing your documents.</p>
       </div>
     );
   }
@@ -109,15 +127,37 @@ const Notes: React.FC<NotesProps> = ({ files, subjectId }) => {
                  <span className="text-xs font-bold text-slate-400 bg-white border border-slate-200 px-3 py-1 rounded-full uppercase tracking-wide">Offline Cache</span>
             </div>
         )}
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 sticky top-0 z-10 mb-6 border-2 border-slate-200 flex justify-between items-center shadow-sm">
-             <PodcastPlayer textToSpeak={notes} />
-             <button 
-                onClick={handleRegenerate}
-                className="text-xs font-bold text-slate-400 hover:text-sky-500 uppercase tracking-wide flex items-center gap-1 ml-4 transition-colors"
-             >
-                 <ArrowPathIcon className="w-4 h-4" /> Regenerate
-             </button>
+
+        <div className="sticky top-0 z-10 mb-6 bg-white/95 backdrop-blur-md rounded-2xl p-4 border-2 border-slate-200 shadow-sm space-y-4">
+            {/* Style Selector */}
+            <div className="flex bg-slate-100 p-1 rounded-xl">
+                 <button 
+                    onClick={() => handleStyleChange('cornell')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${activeStyle === 'cornell' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                 >
+                     <BookOpenIcon className="w-4 h-4" />
+                     Cornell Method
+                 </button>
+                 <button 
+                    onClick={() => handleStyleChange('bullet')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${activeStyle === 'bullet' ? 'bg-white text-green-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                 >
+                     <ClipboardDocumentListIcon className="w-4 h-4" />
+                     Quick Revise
+                 </button>
+            </div>
+
+            <div className="flex justify-between items-center">
+                <PodcastPlayer textToSpeak={notes} />
+                <button 
+                    onClick={handleRegenerate}
+                    className="text-xs font-bold text-slate-400 hover:text-sky-500 uppercase tracking-wide flex items-center gap-1 ml-4 transition-colors"
+                >
+                    <ArrowPathIcon className="w-4 h-4" /> Regenerate
+                </button>
+            </div>
         </div>
+
         <div className="prose prose-slate max-w-none">
             {renderFormattedText(notes)}
         </div>

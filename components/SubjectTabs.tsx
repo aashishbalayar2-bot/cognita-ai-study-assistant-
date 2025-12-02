@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
     ChatBubbleLeftRightIcon,
@@ -7,7 +6,7 @@ import {
     MicrophoneIcon,
     ClipboardDocumentCheckIcon,
     FolderPlusIcon,
-    PresentationChartBarIcon,
+    TrophyIcon,
 } from './icons/Icons';
 import { SubjectTab } from '../types';
 
@@ -27,7 +26,7 @@ const subjectTabs: Tab[] = [
   { id: 'quiz', name: 'QUIZ', icon: AcademicCapIcon },
   { id: 'notes', name: 'NOTES', icon: DocumentTextIcon },
   { id: 'recap', name: 'RECAP', icon: ClipboardDocumentCheckIcon },
-  { id: 'lecture', name: 'LECTURE', icon: PresentationChartBarIcon },
+  { id: 'lecture', name: 'QUEST', icon: TrophyIcon },
   { id: 'live_revision', name: 'LIVE', icon: MicrophoneIcon },
   { id: 'resources', name: 'FILES', icon: FolderPlusIcon },
 ];

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { UploadedFile, ChatMessage, ChatTool, ToolDefinition, Flashcard } from '../types';
 import { chatWithDocument, generateFlashcardsFromConcept } from '../services/geminiService';
@@ -7,7 +6,8 @@ import {
   PaperAirplaneIcon, UserIcon, SparklesIcon,
   QuestionMarkCircleIcon, LightBulbIcon,
   ClipboardDocumentListIcon, Squares2x2Icon, CpuChipIcon, DocumentArrowUpIcon, XCircleIcon,
-  DocumentPlusIcon, ClipboardDocumentCheckIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon
+  DocumentPlusIcon, ClipboardDocumentCheckIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon,
+  PlusIcon
 } from './icons/Icons';
 
 interface ChatbotProps {
@@ -23,6 +23,21 @@ const ChatFlashcard: React.FC<{ card: Flashcard }> = ({ card }) => {
         setIsFlipped(false);
     }, [card]);
 
+    // Helper to determine labels based on card type
+    const getFrontLabel = (type: string) => {
+        if (type === 'problem') return 'Problem';
+        if (type === 'definition') return 'Term';
+        if (type === 'long_answer') return 'Exam Question (Long)';
+        return 'Question';
+    };
+
+    const getBackLabel = (type: string) => {
+        if (type === 'problem') return 'Solution';
+        if (type === 'definition') return 'Definition';
+        if (type === 'long_answer') return 'Model Answer';
+        return 'Answer';
+    };
+
     return (
         <div 
             className="w-full h-64 perspective-1000 cursor-pointer group"
@@ -32,18 +47,18 @@ const ChatFlashcard: React.FC<{ card: Flashcard }> = ({ card }) => {
                 {/* Front */}
                 <div className="absolute w-full h-full backface-hidden bg-white border-2 border-slate-200 rounded-2xl p-6 flex flex-col justify-center items-center text-center shadow-sm group-hover:border-sky-400 transition-colors">
                     <span className="text-xs font-extrabold text-sky-500 uppercase tracking-wider mb-3">
-                        {card.type === 'qa' ? 'Question' : 'Term'}
+                        {getFrontLabel(card.type)}
                     </span>
-                    <p className="text-xl font-bold text-slate-700">{card.front}</p>
+                    <p className="text-lg font-bold text-slate-700 overflow-y-auto max-h-40 scrollbar-hide">{card.front}</p>
                     <p className="text-xs text-slate-400 mt-4 absolute bottom-4 font-bold uppercase">Tap to flip</p>
                 </div>
 
                 {/* Back */}
                 <div className="absolute w-full h-full backface-hidden bg-sky-50 border-2 border-sky-200 rounded-2xl p-6 flex flex-col justify-center items-center text-center rotate-y-180 shadow-sm">
                     <span className="text-xs font-extrabold text-sky-500 uppercase tracking-wider mb-3">
-                        {card.type === 'qa' ? 'Answer' : 'Definition'}
+                        {getBackLabel(card.type)}
                     </span>
-                    <p className="text-lg font-medium text-slate-700">{card.back}</p>
+                    <p className="text-base font-medium text-slate-700 overflow-y-auto max-h-40 scrollbar-hide whitespace-pre-wrap">{card.back}</p>
                     <p className="text-xs text-sky-400 mt-4 absolute bottom-4 font-bold uppercase">Tap to flip back</p>
                 </div>
             </div>
@@ -98,6 +113,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ files }) => {
   const [isToolsExpanded, setIsToolsExpanded] = useState(false);
   const [homeworkFile, setHomeworkFile] = useState<UploadedFile | null>(null);
   const [questionFile, setQuestionFile] = useState<UploadedFile | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<UploadedFile[]>([]);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
 
@@ -111,42 +127,42 @@ const Chatbot: React.FC<ChatbotProps> = ({ files }) => {
         name: 'General Chat',
         icon: Squares2x2Icon,
         placeholder: `Ask anything about your document...`,
-        systemInstruction: `You are "Jawz", a highly capable AI study assistant.`
+        systemInstruction: `You are "Professor Zero", a highly capable AI study assistant.`
       },
       {
         id: 'qna_solver',
         name: 'QnA Solver',
         icon: QuestionMarkCircleIcon,
         placeholder: 'Ask your question for the QnA Solver...',
-        systemInstruction: `You are "Jawz", an AI QnA Solver.`
+        systemInstruction: `You are "Professor Zero", an AI QnA Solver.`
       },
       {
         id: 'concept_explainer',
         name: 'Concept Explainer',
         icon: LightBulbIcon,
         placeholder: 'Which concept would you like explained?',
-        systemInstruction: `You are "Jawz", an AI Concept Explainer.`
+        systemInstruction: `You are "Professor Zero", an AI Concept Explainer.`
       },
       {
         id: 'notes_summarizer',
         name: 'Notes Summarizer',
         icon: ClipboardDocumentListIcon,
         placeholder: 'What specific notes or sections should I summarize?',
-        systemInstruction: `You are "Jawz", an AI Notes Summarizer.`
+        systemInstruction: `You are "Professor Zero", an AI Notes Summarizer.`
       },
        {
         id: 'homework_helper',
         name: 'Homework Helper',
         icon: CpuChipIcon,
         placeholder: 'Upload files & type your question...',
-        systemInstruction: `You are "Jawz", an AI Homework Helper.`
+        systemInstruction: `You are "Professor Zero", an AI Homework Helper.`
       },
       {
         id: 'flashcard_generator',
         name: 'Flashcard Generator',
         icon: ClipboardDocumentCheckIcon,
         placeholder: 'What concept do you want flashcards for?',
-        systemInstruction: `You are "Jawz", an AI Flashcard Generator.`
+        systemInstruction: `You are "Professor Zero", an AI Flashcard Generator.`
       },
     ]
   }, [files]);
@@ -193,6 +209,47 @@ const Chatbot: React.FC<ChatbotProps> = ({ files }) => {
   const handleExampleFileChange = createFileHandler(setHomeworkFile);
   const handleQuestionFileChange = createFileHandler(setQuestionFile);
 
+  const handlePendingFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const selectedFiles = event.target.files;
+      if (!selectedFiles) return;
+
+      setFileError(null);
+      setIsProcessingFile(true);
+      
+      try {
+          const newFiles: UploadedFile[] = [];
+          for (let i = 0; i < selectedFiles.length; i++) {
+              const file = selectedFiles[i];
+              if (file.size > 5 * 1024 * 1024) {
+                  setFileError(`File ${file.name} is too large (max 5MB).`);
+                  continue;
+              }
+              if (!['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(file.type)) {
+                  setFileError(`File ${file.name} format not supported.`);
+                  continue;
+              }
+              const base64 = await fileToBase64(file);
+              newFiles.push({
+                  name: file.name,
+                  base64,
+                  mimeType: file.type
+              });
+          }
+          setPendingFiles(prev => [...prev, ...newFiles]);
+      } catch (err) {
+          console.error(err);
+          setFileError('Failed to process one or more files.');
+      } finally {
+          setIsProcessingFile(false);
+          // Reset input value to allow selecting same file again
+          event.target.value = '';
+      }
+  }, []);
+
+  const removePendingFile = (index: number) => {
+      setPendingFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLoading) return;
@@ -206,12 +263,22 @@ const Chatbot: React.FC<ChatbotProps> = ({ files }) => {
             setMessages((prev) => [...prev, { role: 'model', text: 'Please either type your question or upload it as a file.' }]);
             return;
         }
+    } else if (activeTool === 'general') {
+        if (!input.trim() && pendingFiles.length === 0) return;
     } else {
         if (!input.trim()) return;
     }
     
     const userMessageText = input.trim();
-    const userMessage: ChatMessage = { role: 'user', text: userMessageText };
+    
+    // Display attached files in user message
+    let displayText = userMessageText;
+    if (pendingFiles.length > 0) {
+        const fileNames = pendingFiles.map(f => `[Attached: ${f.name}]`).join('\n');
+        displayText = `${displayText}\n\n${fileNames}`.trim();
+    }
+
+    const userMessage: ChatMessage = { role: 'user', text: displayText };
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
@@ -231,16 +298,23 @@ const Chatbot: React.FC<ChatbotProps> = ({ files }) => {
         }
       } else {
         let filesForApi = [...files];
+        let extraFiles: UploadedFile[] = [];
+
         if (activeTool === 'homework_helper') {
             if (homeworkFile) filesForApi.push(homeworkFile);
             if (questionFile) filesForApi.push(questionFile);
+        } else if (activeTool === 'general') {
+            extraFiles = [...pendingFiles];
         }
 
-        responseText = await chatWithDocument(filesForApi, messages, userMessageText, activeTool, currentTool.systemInstruction);
+        responseText = await chatWithDocument(filesForApi, messages, userMessageText, activeTool, currentTool.systemInstruction, extraFiles);
         
         if (activeTool === 'homework_helper') {
             setHomeworkFile(null); // Reset after use
             setQuestionFile(null);
+        }
+        if (activeTool === 'general') {
+            setPendingFiles([]); // Clear pending files after sending
         }
       }
       
@@ -265,6 +339,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ files }) => {
     setIsToolsExpanded(false); // Auto collapse when tool is selected
     setHomeworkFile(null); 
     setQuestionFile(null);
+    setPendingFiles([]); // Clear pending files on tool switch
     setFileError(null);
     const tool = toolDefinitions.find(t => t.id === toolId);
     setMessages(prev => {
@@ -278,8 +353,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ files }) => {
     if (activeTool === 'homework_helper') {
       return !!homeworkFile && (!!questionFile || !!input.trim());
     }
-    return !!input.trim();
-  }, [isLoading, activeTool, homeworkFile, questionFile, input]);
+    return !!input.trim() || pendingFiles.length > 0;
+  }, [isLoading, activeTool, homeworkFile, questionFile, input, pendingFiles.length]);
 
 
   return (
@@ -389,6 +464,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ files }) => {
             </div>
         )}
 
+        {/* Homework Helper Specific Inputs */}
         {activeTool === 'homework_helper' && (
             <div className="mb-4 p-4 bg-blue-50 border-2 border-blue-100 rounded-2xl">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -423,7 +499,32 @@ const Chatbot: React.FC<ChatbotProps> = ({ files }) => {
             </div>
         )}
 
-        <form onSubmit={handleSendMessage} className="flex items-center gap-4">
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2 md:gap-4 relative">
+          
+          {/* Pending File Previews */}
+          {pendingFiles.length > 0 && (
+              <div className="absolute bottom-full mb-3 left-0 w-full flex gap-2 overflow-x-auto p-1 bg-gradient-to-t from-white to-transparent">
+                  {pendingFiles.map((f, i) => (
+                      <div key={i} className="flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl p-2 flex items-center gap-2 shadow-sm animate-in slide-in-from-bottom-2 fade-in duration-300">
+                          <span className="text-xs font-bold text-slate-600 truncate max-w-[100px]">{f.name}</span>
+                          <button type="button" onClick={() => removePendingFile(i)} className="text-slate-400 hover:text-red-500 transition-colors">
+                              <XCircleIcon className="w-4 h-4" />
+                          </button>
+                      </div>
+                  ))}
+              </div>
+          )}
+
+          {/* Plus Button for General Chat */}
+          {activeTool === 'general' && (
+              <>
+                  <input id="chat-file-upload" type="file" multiple className="hidden" onChange={handlePendingFileChange} accept="image/png, image/jpeg, image/webp, application/pdf" disabled={isLoading} />
+                  <label htmlFor="chat-file-upload" className="flex-shrink-0 p-4 bg-slate-100 rounded-2xl hover:bg-slate-200 cursor-pointer text-slate-500 hover:text-blue-600 transition-colors border-2 border-slate-200 hover:border-blue-200">
+                      <PlusIcon className="w-6 h-6" />
+                  </label>
+              </>
+          )}
+
           <input
             type="text"
             value={input}

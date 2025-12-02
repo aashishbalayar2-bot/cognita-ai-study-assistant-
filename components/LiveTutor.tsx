@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality, Blob as GenAiBlob } from '@google/genai';
 import { decode, encode, decodeAudioData } from '../utils/audioUtils';
@@ -92,11 +91,18 @@ const LiveTutor: React.FC = () => {
         setError(null);
         setStatus('Requesting camera access...');
         
+        const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_API_KEY;
+        if (!apiKey) {
+            setError("API Key not found. Please check your .env configuration.");
+            setIsSessionActive(false);
+            return;
+        }
+        
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ 
                 audio: true, 
                 video: { 
-                    facingMode: 'environment', // Prefer back camera
+                    facingMode: { ideal: 'environment' }, // Relaxed constraint for laptop support
                     width: { ideal: 1280 },
                     height: { ideal: 720 }
                 } 
@@ -113,7 +119,7 @@ const LiveTutor: React.FC = () => {
             inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
             outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
             
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            const ai = new GoogleGenAI({ apiKey: apiKey });
 
             sessionPromiseRef.current = ai.live.connect({
                 model: 'gemini-2.5-flash-native-audio-preview-09-2025',
@@ -213,7 +219,7 @@ const LiveTutor: React.FC = () => {
                     },
                     onerror: (e) => {
                         console.error("Session Error", e);
-                        setError("Connection lost.");
+                        setError("Connection lost. Please check your network or API Key.");
                         stopSession();
                     },
                 }
