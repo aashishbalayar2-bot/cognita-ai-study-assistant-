@@ -1,309 +1,89 @@
+
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { ChatMessage, QuizQuestion, UploadedFile, ChatTool, RecapData, DailyRecapData, Flashcard, TeachingReport, QuestScene } from "../types";
+import { ChatMessage, QuizQuestion, UploadedFile, ChatTool, RecapData, DailyRecapData, Flashcard, TeachingReport, QuestScene, StudyPlan, VisualReference, GlobalStudyPlan, StructuredNotes } from "../types";
 
-// Helper to access API key safely in both Node-like and Vite environments
-const getApiKey = () => {
-  return process.env.API_KEY || (import.meta as any).env?.VITE_API_KEY;
+// --- Helper Functions ---
+
+const getAiClient = () => {
+    return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
-
-const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 const fileToGenerativePart = (file: UploadedFile) => {
-  return {
-    inlineData: {
-      data: file.base64,
-      mimeType: file.mimeType,
-    },
-  };
+    return {
+        inlineData: {
+            data: file.base64,
+            mimeType: file.mimeType,
+        },
+    };
 };
+
+const safeJsonParse = <T>(text: string, fallback: T): T => {
+    if (!text) return fallback;
+    try {
+        const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(cleanText) as T;
+    } catch (e) {
+        console.warn("JSON Parse Error", e);
+        return fallback;
+    }
+};
+
+// --- Exported API Functions ---
 
 export const chatWithDocument = async (
-    files: UploadedFile[], 
-    history: ChatMessage[], 
-    newMessage: string, 
-    activeTool: ChatTool, 
-    toolSystemInstruction: string,
-    additionalFiles: UploadedFile[] = []
-) => {
-  const model = 'gemini-2.5-flash';
-  const primaryFileName = files[0]?.name || 'the document';
-
-  const historyContent = history.map(msg => ({ 
-    role: msg.role, 
-    parts: [{ text: msg.text }] 
-  }));
-
-  const fileParts = files.map(fileToGenerativePart);
-  const additionalFileParts = additionalFiles.map(fileToGenerativePart);
-
-  const userParts = [];
-  // Only add the documents for the very first message of the conversation
-  // or if switching from general to a specific tool for the first time in a session.
-  if (history.length === 0 || (activeTool !== 'general' && history.length > 0 && history[history.length -1].role === 'model' && !history[history.length -1].text.includes('Tool:'))) {
-    userParts.push(...fileParts);
-  }
-  
-  // Always include additional files attached to this specific message
-  if (additionalFileParts.length > 0) {
-      userParts.push(...additionalFileParts);
-  }
-
-  userParts.push({ text: newMessage });
-
-  const newUserContent = { role: 'user', parts: userParts };
-
-  // DEEP LEARNING UPDATE: Changed default persona to be Socratic and Analogical
-  const baseInstruction = `You are "Professor Zero", an expert AI Tutor designed to foster deep understanding, not just memorization.
-- Your goal is to help the student *understand* the "Why" and "How", not just the "What".
-- Response Header: "Tool: General Chat | Topic: ${primaryFileName}"
-- Methodology:
-  1. **Scaffolding**: If a concept is complex, break it down.
-  2. **Analogies**: Use real-world analogies to explain abstract concepts.
-  3. **Check for Understanding**: Occasionally ask "Does that make sense?" or "How would you explain this in your own words?".
-  4. **Don't just Dump Facts**: If the user asks a broad question, guide them to the answer rather than writing an essay immediately.
-- Cite page references if available.
-- Tone: Encouraging, curious, and professional.
-- Your response must end with: "Would you like to run another tool on this topic?"`;
-
-  const systemInstruction = toolSystemInstruction.replace(/\${file.name}/g, primaryFileName) || baseInstruction;
-
-  const response = await ai.models.generateContent({
-    model: model,
-    contents: [...historyContent, newUserContent],
-    config: {
-        systemInstruction: systemInstruction
-    }
-  });
-
-  return response.text;
-};
-
-export const liveTutorAnalysis = async (
-    base64Image: string,
-    mimeType: string,
-    history: ChatMessage[],
-    newMessage: string
-) => {
-    const model = 'gemini-2.5-flash';
-
-    const historyContent = history.map(msg => ({
-        role: msg.role,
-        parts: [{ text: msg.text }] 
-    }));
-
-    const imagePart = {
-        inlineData: {
-            data: base64Image,
-            mimeType: mimeType,
-        },
-    };
-
-    const textPart = { text: newMessage };
+    files: UploadedFile[],
+    messages: ChatMessage[],
+    input: string,
+    tool: ChatTool,
+    systemInstruction: string,
+    extraFiles: UploadedFile[] = []
+): Promise<string> => {
+    const ai = getAiClient();
+    const model = 'gemini-3-flash-preview';
     
-    const newUserContent = { 
-        role: 'user' as const, 
-        parts: [imagePart, textPart] 
-    };
-
-    // DEEP LEARNING UPDATE: Focus on guiding the user through the problem visible in the camera
-    const systemInstruction = `You are "Professor Zero", a friendly and helpful visual AI tutor. 
-- The user is showing you their work/textbook.
-- **Pedagogical Approach**: Do not just solve the problem for them.
-- Ask: "What do you think is the first step?" or "Where are you getting stuck?"
-- Guide them through the logic based on what you see.
-- If they have a misconception, gently correct the *logic*, not just the answer.
-- Keep responses concise and spoken-style.`;
+    // Limit chat context to first 3 files + extras to ensure speed without losing too much context
+    const fileParts = [...files.slice(0, 3), ...extraFiles].map(fileToGenerativePart);
+    
+    const chatContents = [
+        ...messages.map(m => ({
+            role: m.role,
+            parts: [{ text: m.text }]
+        })),
+        {
+            role: 'user',
+            parts: [...fileParts, { text: input }]
+        }
+    ];
 
     const response = await ai.models.generateContent({
-        model: model,
-        contents: [...historyContent, newUserContent],
+        model,
+        contents: chatContents,
         config: {
-            systemInstruction: systemInstruction
+            systemInstruction
         }
     });
 
-    return response.text;
+    return response.text || "I'm sorry, I couldn't process that.";
 };
 
-
-export const generateQuiz = async (files: UploadedFile[]): Promise<QuizQuestion[]> => {
-  const model = 'gemini-2.5-flash';
-  const fileParts = files.map(fileToGenerativePart);
-
-  // DEEP LEARNING UPDATE: Focus on Application and Analysis (Bloom's Taxonomy)
-  const prompt = `You are "Jawz", an expert exam setter. Generate a 5-question multiple-choice quiz based on the provided documents.
-  - **CRITICAL**: Avoid simple "definition recall" questions (e.g., "What is X?").
-  - **Focus on Application**: Create scenario-based questions (e.g., "If X happens, what is the likely outcome for Y?").
-  - **Focus on Analysis**: Ask about relationships between concepts.
-  - Difficulty should vary.
-  - Include an 'explanation' that explains *why* the answer is correct and *why* the others are wrong.
-  - Provide an AI confidence score (0.0-1.0).
-  - Return JSON.`;
-
-  const response = await ai.models.generateContent({
-    model: model,
-    contents: {
-      role: 'user',
-      parts: [...fileParts, { text: prompt }]
-    },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            question: { type: Type.STRING },
-            options: { type: Type.ARRAY, items: { type: Type.STRING } },
-            correctAnswer: { type: Type.STRING },
-            explanation: { type: Type.STRING },
-            difficulty: { 
-                type: Type.STRING, 
-                description: 'Difficulty: easy, medium, or hard.' 
-            },
-            page_ref: { type: Type.STRING },
-            confidenceScore: { type: Type.NUMBER },
-          },
-          required: ["question", "options", "correctAnswer", "explanation"],
-        },
-      },
-    },
-  });
-  
-  const jsonText = response.text.trim();
-  try {
-      return JSON.parse(jsonText);
-  } catch (e) {
-      console.error("Failed to parse quiz JSON:", e);
-      return [];
-  }
-};
-
-export const generateNotes = async (files: UploadedFile[], style: 'cornell' | 'bullet' = 'cornell'): Promise<string> => {
-    const model = 'gemini-2.5-flash';
-    const fileParts = files.map(fileToGenerativePart);
+export const generateFlashcardsFromConcept = async (
+    files: UploadedFile[],
+    topic: string,
+    history: ChatMessage[]
+): Promise<Flashcard[]> => {
+    const ai = getAiClient();
+    const model = 'gemini-3-flash-preview';
+    const fileParts = files.slice(0, 3).map(fileToGenerativePart);
     
-    let prompt = '';
-
-    if (style === 'cornell') {
-        // DEEP LEARNING UPDATE: Cornell Note-Taking Method (Active Recall)
-        prompt = `You are "Jawz", an expert study coach. Create structured revision notes using the **Cornell Note-Taking Method** principles to promote Active Recall.
-      
-        Structure required:
-        1. **# Main Topic Title**
-        2. **## Executive Summary** (Brief overview)
-        3. **### Q: [Insightful Question]**
-           * (Provide the answer/details here. Using questions as headers forces the student to think before reading).
-        4. **### Q: [Another Insightful Question]**
-           * (Details...)
-        5. **## Key Connections** (How these concepts relate to each other).
-        6. **## Summary**
-        
-        - Use Markdown.
-        - Make the questions probing (e.g., "Why is X critical for Y?" instead of "What is X?").
-        - Highlight key terms in **bold**.`;
-    } else {
-        // QUICK REVISION UPDATE: Bullet Points & Chunks ("Goated Revision")
-        prompt = `You are "Jawz", an elite revision expert. Create "Goated Revision Notes" optimized for rapid visual scanning and memory retention.
-        
-        Structure required:
-        1. **# ⚡ High-Yield Overview** (3 sentences max).
-        2. **## 🧠 Brain Chunks** (Break the topic into distinct, logical blocks. Do NOT use long paragraphs).
-           - Use **Bullet Points** for everything.
-           - Use **Bold** for keywords so the eye can scan.
-           - Use emojis (e.g., ⚠️, ✅, 💡) to mark important warnings or tips.
-        3. **## 📝 Rapid Fire Facts** (List of single-line facts perfect for memorization).
-        4. **## 🚫 Common Pitfalls** (What do students usually get wrong?).
-        
-        - Keep lines short.
-        - Focus on "Signal vs Noise" - only the most important info.
-        - Use Markdown.`;
-    }
+    const prompt = `Generate 5 high-quality flashcards based on the topic: "${topic}".
+    Use the provided documents for context.
+    Return a JSON array with types: qa, definition, problem, long_answer.`;
 
     const response = await ai.models.generateContent({
-      model: model,
-      contents: {
-        role: 'user',
-        parts: [...fileParts, { text: prompt }]
-      }
-    });
-  
-    return response.text;
-  };
-
-  export const generateRecap = async (files: UploadedFile[]): Promise<RecapData> => {
-    const model = 'gemini-2.5-flash';
-    const fileParts = files.map(fileToGenerativePart);
-  
-    // DEEP LEARNING UPDATE: Synthesis and Connection Flashcards
-    const prompt = `Analyze the provided document(s) and generate a deep-learning study recap in JSON format.
-        1. 'summary': A synthesis of the main argument (not just a list of facts).
-        2. 'keyConcepts': An array of 5 key concepts, each with a 'concept' name and a detailed 'explanation' that includes examples.
-        3. 'flashcards': An array of 5 flashcards.
-           - **CRITICAL**: Include at least 2 'problem' or 'long_answer' cards that test *relationships* between concepts (e.g. "Compare and contrast X and Y").
-           - Avoid simple definitions.
-           - 'type': Must be 'qa', 'definition', 'problem', or 'long_answer'.
-           - 'front': The question, term, problem statement, or exam question.
-           - 'back': The answer, definition, step-by-step solution, or model answer.
-        4. 'visualAidPrompt': A creative image generation prompt that would best visually represent the core topic (e.g. a diagram of a process).`;
-
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: {
-        role: 'user',
-        parts: [...fileParts, { text: prompt }]
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            summary: { type: Type.STRING },
-            keyConcepts: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  concept: { type: Type.STRING },
-                  explanation: { type: Type.STRING }
-                }
-              }
-            },
-            flashcards: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  type: { type: Type.STRING, enum: ['qa', 'definition', 'problem', 'long_answer'] },
-                  front: { type: Type.STRING },
-                  back: { type: Type.STRING }
-                }
-              }
-            },
-            visualAidPrompt: { type: Type.STRING }
-          }
-        }
-      }
-    });
-  
-    return JSON.parse(response.text);
-  };
-  
-export const generateMoreFlashcards = async (files: UploadedFile[], existingFlashcards: Flashcard[]): Promise<Flashcard[]> => {
-    const model = 'gemini-2.5-flash';
-    const fileParts = files.map(fileToGenerativePart);
-    const existingFronts = existingFlashcards.map(f => f.front).join(" | ");
-
-    const response = await ai.models.generateContent({
-        model: model,
+        model,
         contents: {
             role: 'user',
-            parts: [...fileParts, { text: `Generate 5 NEW flashcards based on the documents. 
-            - Do NOT duplicate these existing cards: ${existingFronts}.
-            - **Focus**: Second-order thinking. Ask "Why", "How", and "What if".
-            - Include 'problem' type for derivations or logic chains.
-            - Include 'long_answer' for explaining processes.
-            Return JSON.` }]
+            parts: [...fileParts, { text: prompt }]
         },
         config: {
             responseMimeType: "application/json",
@@ -312,32 +92,37 @@ export const generateMoreFlashcards = async (files: UploadedFile[], existingFlas
                 items: {
                     type: Type.OBJECT,
                     properties: {
-                        type: { type: Type.STRING, enum: ['qa', 'definition', 'problem', 'long_answer'] },
+                        type: { type: Type.STRING, description: "qa, definition, problem, long_answer" },
                         front: { type: Type.STRING },
                         back: { type: Type.STRING }
-                    }
+                    },
+                    required: ["type", "front", "back"]
                 }
             }
         }
     });
 
-    return JSON.parse(response.text);
+    return safeJsonParse(response.text, []);
 };
 
-export const generateFlashcardsFromConcept = async (files: UploadedFile[], concept: string): Promise<Flashcard[]> => {
-    const model = 'gemini-2.5-flash';
-    const fileParts = files.map(fileToGenerativePart);
+export const generateQuiz = async (
+    files: UploadedFile[],
+    count: number,
+    type: 'mixed' | 'theoretical' | 'practical'
+): Promise<QuizQuestion[]> => {
+    const ai = getAiClient();
+    const model = 'gemini-3-flash-preview';
+    const fileParts = files.slice(0, 3).map(fileToGenerativePart);
+    
+    const prompt = `Generate a ${type} quiz with ${count} questions based on the documents. 
+    Include explanations and difficulty levels. 
+    If a question relates to a specific diagram or figure in the file, include a 'visualReference'.`;
 
     const response = await ai.models.generateContent({
-        model: model,
+        model,
         contents: {
             role: 'user',
-            parts: [...fileParts, { text: `Generate 5 flashcards specifically focused on the concept: "${concept}". 
-            - Focus on understanding the *mechanisms* and *principles* behind this concept.
-            - Use a mix of 'qa', 'definition', 'problem', and 'long_answer' types.
-            - If it involves math or processes, use 'problem'.
-            - If it's a broad topic, include a 'long_answer' exam question.
-            Return JSON.` }]
+            parts: [...fileParts, { text: prompt }]
         },
         config: {
             responseMimeType: "application/json",
@@ -346,97 +131,55 @@ export const generateFlashcardsFromConcept = async (files: UploadedFile[], conce
                 items: {
                     type: Type.OBJECT,
                     properties: {
-                        type: { type: Type.STRING, enum: ['qa', 'definition', 'problem', 'long_answer'] },
-                        front: { type: Type.STRING },
-                        back: { type: Type.STRING }
-                    }
-                }
-            }
-        }
-    });
-
-    return JSON.parse(response.text);
-};
-
-// --- QUEST MODE SERVICES ---
-
-export const startQuest = async (files: UploadedFile[]): Promise<QuestScene> => {
-    const model = 'gemini-2.5-flash';
-    const fileParts = files.map(fileToGenerativePart);
-
-    // PEDAGOGY UPDATE: Lecture then Game with MULTIPLE QUESTIONS
-    const prompt = `You are "Professor Zero", creating a Gamified Learning Experience.
-    1. **Setting**: Create a high-stakes story setting (Sci-Fi, Mystery, etc.).
-    2. **Scene 1**: 
-       - **Concept Phase**: Identify the FIRST key concept. Explain it as a **High-Density Micro-Lecture**.
-         - Use clear bullet points.
-         - Use **Bold** for critical terms.
-         - Maximize information density so the student can answer questions quickly.
-       - **Narrative Phase**: Create a story scene where the user faces a problem related to the concept.
-    3. **Challenges**: 
-       - **CRITICAL**: Generate **3 DISTINCT** multiple-choice questions to test this concept thoroughly.
-       - Question 1: Recall (Definition/Fact).
-       - Question 2: Understanding (Mechanism/Process).
-       - Question 3: Application (Scenario/Calculation).
-       - Keep questions direct and academic.
-    4. **Output**: Return strictly JSON.`;
-
-    const response = await ai.models.generateContent({
-        model: model,
-        contents: {
-            role: 'user',
-            parts: [...fileParts, { text: prompt }]
-        },
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    conceptName: { type: Type.STRING, description: "Title of the concept being taught" },
-                    conceptExplanation: { type: Type.STRING, description: "The educational explanation/lecture" },
-                    narrative: { type: Type.STRING, description: "The story text starting the adventure." },
-                    visualPrompt: { type: Type.STRING },
-                    conceptUnlocked: { type: Type.STRING },
-                    challenges: {
-                        type: Type.ARRAY,
-                        items: {
+                        question: { type: Type.STRING },
+                        options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        correctAnswer: { type: Type.STRING },
+                        explanation: { type: Type.STRING },
+                        difficulty: { type: Type.STRING },
+                        page_ref: { type: Type.STRING },
+                        visualReference: {
                             type: Type.OBJECT,
                             properties: {
-                                type: { type: Type.STRING, enum: ['multiple_choice', 'ordering'] },
-                                question: { type: Type.STRING },
-                                options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                correctAnswer: { type: Type.STRING }
-                            }
+                                type: { type: Type.STRING },
+                                fileIndex: { type: Type.NUMBER },
+                                pageNumber: { type: Type.NUMBER },
+                                description: { type: Type.STRING }
+                            },
+                            required: ["type", "fileIndex", "description"]
                         }
-                    }
+                    },
+                    required: ["question", "options", "correctAnswer", "explanation"]
                 }
             }
         }
     });
 
-    return JSON.parse(response.text);
+    return safeJsonParse(response.text, []);
 };
 
-export const progressQuest = async (files: UploadedFile[], previousScene: string, userAction: string, wasCorrect: boolean): Promise<QuestScene> => {
-    const model = 'gemini-2.5-flash';
-    const fileParts = files.map(fileToGenerativePart);
-
-    const prompt = `You are "Professor Zero". Continue the Educational RPG.
-    - Previous Scene: "${previousScene}"
-    - User Last Action: "${userAction}" (Result: ${wasCorrect ? 'Success' : 'Fail'})
+export const generateNotes = async (
+    files: UploadedFile[],
+    style: 'cornell' | 'bullet'
+): Promise<StructuredNotes> => {
+    const ai = getAiClient();
+    const model = 'gemini-3-flash-preview';
+    const fileParts = files.slice(0, 3).map(fileToGenerativePart);
     
-    1. **Narrative**:
-       - Briefly describe the result of the previous encounter.
-       - Introduce the NEXT key concept in the story flow.
-    2. **Concept Phase**:
-       - Explain the NEW concept as a **High-Density Micro-Lecture** (Bullets, Bold keywords).
-    3. **Challenges**:
-       - **CRITICAL**: Generate **3 DISTINCT** multiple-choice questions for this NEW concept.
-       - Ensure they cover Recall, Understanding, and Application.
-    4. **Output**: JSON.`;
+    const prompt = `Generate highly effective, exam-focused study notes in ${style} style based on the files.
+    
+    Structure:
+    1. Title: The main topic.
+    2. Exam Tips: List 3-5 high-yield facts, common pitfalls, or things examiners specifically look for.
+    3. Sections: Divide the content into logical sections. 
+       - For 'cornell': 'cue' is the question/keyword, 'content' is the detailed explanation.
+       - For 'bullet': 'cue' is the sub-heading, 'content' is the bulleted list.
+    4. Visuals: If you find important diagrams in the files, capture their reference.
+    5. Summary: A concise 2-3 sentence summary of the entire topic.
+    
+    Return valid JSON.`;
 
     const response = await ai.models.generateContent({
-        model: model,
+        model,
         contents: {
             role: 'user',
             parts: [...fileParts, { text: prompt }]
@@ -446,48 +189,106 @@ export const progressQuest = async (files: UploadedFile[], previousScene: string
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
-                    conceptName: { type: Type.STRING },
-                    conceptExplanation: { type: Type.STRING },
-                    narrative: { type: Type.STRING },
-                    visualPrompt: { type: Type.STRING },
-                    conceptUnlocked: { type: Type.STRING },
-                    xpGain: { type: Type.NUMBER },
-                    hpChange: { type: Type.NUMBER },
-                    challenges: {
+                    title: { type: Type.STRING },
+                    examTips: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    sections: {
                         type: Type.ARRAY,
                         items: {
                             type: Type.OBJECT,
                             properties: {
-                                type: { type: Type.STRING, enum: ['multiple_choice', 'ordering'] },
-                                question: { type: Type.STRING },
-                                options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                correctAnswer: { type: Type.STRING }
-                            }
+                                cue: { type: Type.STRING },
+                                content: { type: Type.STRING },
+                                visualIndex: { type: Type.NUMBER, nullable: true }
+                            },
+                            required: ["cue", "content"]
+                        }
+                    },
+                    summary: { type: Type.STRING },
+                    visuals: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                type: { type: Type.STRING },
+                                fileIndex: { type: Type.NUMBER },
+                                pageNumber: { type: Type.NUMBER },
+                                description: { type: Type.STRING }
+                            },
+                            required: ["type", "fileIndex", "description"]
                         }
                     }
-                }
+                },
+                required: ["title", "sections", "summary", "visuals", "examTips"]
             }
         }
     });
 
-    return JSON.parse(response.text);
+    return safeJsonParse(response.text, { title: 'Notes', examTips: [], sections: [], summary: '', visuals: [] });
 };
 
-
-export const generateLectureScript = async (files: UploadedFile[]): Promise<string[]> => {
-    const model = 'gemini-2.5-flash';
-    const fileParts = files.map(fileToGenerativePart);
-
-    // DEEP LEARNING UPDATE: Engaging Lecture Style
-    const prompt = `Create an engaging lecture script based on these documents.
-    - Break the content into 5-8 slide-sized distinct paragraphs. 
-    - **Style**: Storytelling and Explanation. Don't just list facts.
-    - Use rhetorical questions to keep the student thinking.
-    - Explain *why* this topic matters.
-    - Return the result as a JSON array of strings.`;
+export const generateRecap = async (files: UploadedFile[]): Promise<RecapData> => {
+    const ai = getAiClient();
+    const model = 'gemini-3-flash-preview';
+    const fileParts = files.slice(0, 3).map(fileToGenerativePart);
+    
+    const prompt = `Generate a recap for these documents including a summary, key concepts, and 5 initial flashcards. 
+    Also suggest a visualAidPrompt for a diagram.`;
 
     const response = await ai.models.generateContent({
-        model: model,
+        model,
+        contents: {
+            role: 'user',
+            parts: [...fileParts, { text: prompt }]
+        },
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    summary: { type: Type.STRING },
+                    keyConcepts: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                concept: { type: Type.STRING },
+                                explanation: { type: Type.STRING }
+                            },
+                            required: ["concept", "explanation"]
+                        }
+                    },
+                    flashcards: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                type: { type: Type.STRING },
+                                front: { type: Type.STRING },
+                                back: { type: Type.STRING }
+                            },
+                            required: ["type", "front", "back"]
+                        }
+                    },
+                    visualAidPrompt: { type: Type.STRING }
+                },
+                required: ["summary", "keyConcepts", "flashcards", "visualAidPrompt"]
+            }
+        }
+    });
+
+    return safeJsonParse(response.text, { summary: '', keyConcepts: [], flashcards: [], visualAidPrompt: '' });
+};
+
+export const generateMoreFlashcards = async (files: UploadedFile[], existing: Flashcard[]): Promise<Flashcard[]> => {
+    const ai = getAiClient();
+    const model = 'gemini-3-flash-preview';
+    const fileParts = files.slice(0, 3).map(fileToGenerativePart);
+    const existingTopics = existing.map(f => f.front).join(', ');
+
+    const prompt = `Generate 5 additional unique flashcards. Do not repeat these topics: ${existingTopics}`;
+
+    const response = await ai.models.generateContent({
+        model,
         contents: {
             role: 'user',
             parts: [...fileParts, { text: prompt }]
@@ -496,68 +297,33 @@ export const generateLectureScript = async (files: UploadedFile[]): Promise<stri
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.ARRAY,
-                items: { type: Type.STRING }
-            }
-        }
-    });
-
-    return JSON.parse(response.text);
-};
-
-export const clarifyLectureDoubt = async (files: UploadedFile[], lectureContext: string, question: string): Promise<string> => {
-    const model = 'gemini-2.5-flash';
-    const fileParts = files.map(fileToGenerativePart);
-
-    const response = await ai.models.generateContent({
-        model: model,
-        contents: {
-            role: 'user',
-            parts: [...fileParts, { text: `You are "Professor Zero", a lecturer. You have just said this: "${lectureContext}". 
-            Student Question: "${question}".
-            Answer conceptually. Use an analogy if helpful. Keep it conversational.` }]
-        }
-    });
-
-    return response.text;
-};
-
-export const generatePodcastAudio = async (text: string): Promise<string> => {
-    const model = 'gemini-2.5-flash-preview-tts';
-    
-    const response = await ai.models.generateContent({
-        model: model,
-        contents: {
-            parts: [{ text: text }]
-        },
-        config: {
-            responseModalities: [Modality.AUDIO],
-            speechConfig: {
-                voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: 'Puck' } 
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        type: { type: Type.STRING },
+                        front: { type: Type.STRING },
+                        back: { type: Type.STRING }
+                    },
+                    required: ["type", "front", "back"]
                 }
             }
         }
     });
 
-    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || '';
+    return safeJsonParse(response.text, []);
 };
 
 export const generateDailyRecap = async (files: UploadedFile[], topics: string): Promise<DailyRecapData> => {
-    const model = 'gemini-2.5-flash';
-    const fileParts = files.map(fileToGenerativePart);
-
-    // DEEP LEARNING UPDATE: Focus on Synthesis across topics
-    const prompt = `Generate a 'Daily Recap' based on the provided documents, specifically focusing on these topics: "${topics}".
-            The output must be JSON with:
-            1. 'summary': A cohesive paragraph summarizing how these topics relate across the different documents. Synthesize information.
-            2. 'connections': A paragraph explicitly pointing out interesting connections, contradictions, or themes between the documents.
-            3. 'keyConcepts': 5 key concepts from these topics (concept, explanation).
-            4. 'flashcards': 5 flashcards testing the *intersections* of these topics (mix of 'qa', 'definition', 'problem', 'long_answer').
-            5. 'quiz': 3 multiple choice questions (question, options, correctAnswer, explanation).
-            6. 'visualAidPrompt': An image prompt that synthesizes these topics.`;
+    const ai = getAiClient();
+    const model = 'gemini-3-flash-preview';
+    // Limit to 3 files to balance speed and context
+    const fileParts = files.slice(0, 3).map(fileToGenerativePart);
+    
+    const prompt = `Generate a cross-subject daily recap for the topics: "${topics}". 
+    Identify connections between different materials. Include a mini-quiz.`;
 
     const response = await ai.models.generateContent({
-        model: model,
+        model,
         contents: {
             role: 'user',
             parts: [...fileParts, { text: prompt }]
@@ -584,7 +350,7 @@ export const generateDailyRecap = async (files: UploadedFile[], topics: string):
                         items: {
                             type: Type.OBJECT,
                             properties: {
-                                type: { type: Type.STRING, enum: ['qa', 'definition', 'problem', 'long_answer'] },
+                                type: { type: Type.STRING },
                                 front: { type: Type.STRING },
                                 back: { type: Type.STRING }
                             }
@@ -608,25 +374,126 @@ export const generateDailyRecap = async (files: UploadedFile[], topics: string):
         }
     });
 
-    return JSON.parse(response.text);
+    return safeJsonParse(response.text, { summary: '', connections: '', keyConcepts: [], flashcards: [], quiz: [], visualAidPrompt: '' });
+};
+
+export const startQuest = async (files: UploadedFile[]): Promise<QuestScene> => {
+    const ai = getAiClient();
+    const model = 'gemini-3-flash-preview';
+    const fileParts = files.slice(0, 3).map(fileToGenerativePart);
+
+    const prompt = `Start a Socratic 'Quest' simulation based on the documents. 
+    The student enters a learning environment. Provide a narrative, a concept explanation, and 3 initial challenges.`;
+
+    const response = await ai.models.generateContent({
+        model,
+        contents: {
+            role: 'user',
+            parts: [...fileParts, { text: prompt }]
+        },
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    conceptName: { type: Type.STRING },
+                    conceptExplanation: { type: Type.STRING },
+                    narrative: { type: Type.STRING },
+                    visualPrompt: { type: Type.STRING },
+                    challenges: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                question: { type: Type.STRING },
+                                options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                correctAnswer: { type: Type.STRING }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    return safeJsonParse(response.text, {} as QuestScene);
+};
+
+export const progressQuest = async (files: UploadedFile[], previousNarrative: string, userChoice: string, isCorrect: boolean): Promise<QuestScene> => {
+    const ai = getAiClient();
+    const model = 'gemini-3-flash-preview';
+    const fileParts = files.slice(0, 3).map(fileToGenerativePart);
+
+    const prompt = `Continue the Quest simulation. 
+    The student answered: "${userChoice}" (${isCorrect ? 'Correct' : 'Incorrect'}).
+    Previous scene: "${previousNarrative}".
+    Deliver the next scene's narrative, concept, and challenges.`;
+
+    const response = await ai.models.generateContent({
+        model,
+        contents: {
+            role: 'user',
+            parts: [...fileParts, { text: prompt }]
+        },
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    conceptName: { type: Type.STRING },
+                    conceptExplanation: { type: Type.STRING },
+                    narrative: { type: Type.STRING },
+                    challenges: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                question: { type: Type.STRING },
+                                options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                correctAnswer: { type: Type.STRING }
+                            }
+                        }
+                    },
+                    conceptUnlocked: { type: Type.STRING }
+                }
+            }
+        }
+    });
+
+    return safeJsonParse(response.text, {} as QuestScene);
+};
+
+export const generatePodcastAudio = async (text: string): Promise<string> => {
+    const ai = getAiClient();
+    const model = "gemini-2.5-flash-preview-tts";
+    
+    const response = await ai.models.generateContent({
+        model,
+        contents: [{ parts: [{ text: `Read this clearly: ${text}` }] }],
+        config: {
+            responseModalities: [Modality.AUDIO],
+            speechConfig: {
+                voiceConfig: {
+                    prebuiltVoiceConfig: { voiceName: 'Kore' },
+                },
+            },
+        },
+    });
+
+    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
 };
 
 export const generateTeachingFeedback = async (transcript: string, topic: string): Promise<TeachingReport> => {
-    const model = 'gemini-2.5-flash';
+    const ai = getAiClient();
+    const model = 'gemini-3-flash-preview';
     
-    // DEEP LEARNING UPDATE: Evaluate on conceptual clarity, not just fact recall
-    const prompt = `Evaluate my teaching on "${topic}". Transcript: "${transcript}".
-    - Did I explain the *intuition* behind the concept?
-    - Did I use examples?
-    - **Score**: 0-100 based on ability to simplify complex ideas (Feynman Technique).
-    - **Feedback**: Constructive criticism on my explanation style.
-    - Return JSON.`;
+    const prompt = `Evaluate this teaching transcript on "${topic}". Rate clarity.`;
 
     const response = await ai.models.generateContent({
-        model: model,
+        model,
         contents: {
             role: 'user',
-            parts: [{ text: prompt }]
+            parts: [{ text: prompt }, { text: transcript }]
         },
         config: {
             responseMimeType: "application/json",
@@ -635,12 +502,178 @@ export const generateTeachingFeedback = async (transcript: string, topic: string
                 properties: {
                     score: { type: Type.NUMBER },
                     feedback: { type: Type.STRING },
-                    clarityRating: { type: Type.STRING, enum: ['Low', 'Medium', 'High'] },
+                    clarityRating: { type: Type.STRING },
                     missedPoints: { type: Type.ARRAY, items: { type: Type.STRING } }
+                },
+                required: ["score", "feedback", "clarityRating", "missedPoints"]
+            }
+        }
+    });
+
+    return safeJsonParse(response.text, { score: 0, feedback: '', clarityRating: 'Medium', missedPoints: [] } as TeachingReport);
+};
+
+export const generateStudyPlan = async (files: UploadedFile[], goal: string, durationDays: number): Promise<StudyPlan> => {
+    const ai = getAiClient();
+    const model = 'gemini-3-flash-preview';
+    const fileParts = files.slice(0, 3).map(fileToGenerativePart);
+
+    const prompt = `Generate a structured ${durationDays}-day study plan for: "${goal}".
+    Use the provided documents as the primary source.
+    
+    REQUIREMENTS:
+    1. Create exactly ${durationDays} daily tasks.
+    2. Each task must have a topic, activity, and 'importantQuestions'.
+    3. If documents are insufficient, use general knowledge for "${goal}".
+    4. Return valid JSON.`;
+
+    const response = await ai.models.generateContent({
+        model,
+        contents: {
+            role: 'user',
+            parts: [...fileParts, { text: prompt }]
+        },
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    goal: { type: Type.STRING },
+                    durationDays: { type: Type.NUMBER },
+                    tasks: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                id: { type: Type.STRING },
+                                day: { type: Type.NUMBER },
+                                topic: { type: Type.STRING },
+                                activity: { type: Type.STRING },
+                                completed: { type: Type.BOOLEAN },
+                                importantQuestions: { type: Type.ARRAY, items: { type: Type.STRING } }
+                            },
+                            required: ["id", "day", "topic", "activity", "completed"]
+                        }
+                    }
                 }
             }
         }
     });
 
-    return JSON.parse(response.text);
+    return safeJsonParse(response.text, { goal, durationDays, tasks: [] });
+};
+
+export const generateGlobalStudyPlan = async (
+    files: UploadedFile[], 
+    country: string, 
+    examBoard: string, 
+    goal: string, 
+    personalization: string, 
+    specFile?: UploadedFile
+): Promise<GlobalStudyPlan> => {
+    const ai = getAiClient();
+    const model = 'gemini-3-pro-preview'; // UPGRADED to PRO for better complex reasoning
+    
+    // Process main files (limit to 3 for context window if needed, or maybe just send them)
+    // The prompt in GlobalStudyPlanner suggests selecting files.
+    const fileParts = files.slice(0, 5).map(fileToGenerativePart);
+    
+    let specPart = null;
+    if (specFile) {
+        specPart = fileToGenerativePart(specFile);
+    }
+    
+    const parts = [...fileParts];
+    if (specPart) parts.push(specPart);
+    
+    const prompt = `Generate a comprehensive exam-focused study plan based on the provided documents.
+    Context:
+    - Country: ${country}
+    - Exam Board: ${examBoard}
+    - Goal: ${goal}
+    - User Preferences: ${personalization}
+    
+    Task:
+    Analyze the provided content (and specification/syllabus grid if available) against the exam board syllabus.
+    Create a modular study plan. Break down the syllabus into modules (chapters/units).
+    
+    **CRITICAL WEIGHTAGE RULES**:
+    1. Determine the 'totalMarks' for the full exam paper (e.g. 75, 80, 100).
+    2. Assign a 'weightage' (marks) to each module representing its contribution to the total.
+    3. The sum of weightages of ALL modules must roughly equal 'totalMarks'.
+    4. **DO NOT** assign the total exam marks to a single module. For example, if Total is 75, a single chapter might be 5, 10, or 12 marks, NOT 75.
+    5. If the uploaded files only cover a *part* of the syllabus, assign realistic marks for those specific chapters (e.g., 10 marks total) but keep 'totalMarks' as the full exam total (e.g., 75).
+    
+    Create specific tasks for each module.
+    Identify "importantQuestions" for each task that are likely to appear in exams.
+    
+    Return JSON format matching the schema.`;
+
+    const response = await ai.models.generateContent({
+        model,
+        contents: {
+            role: 'user',
+            parts: [...parts, { text: prompt }]
+        },
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    country: { type: Type.STRING },
+                    examBoard: { type: Type.STRING },
+                    goal: { type: Type.STRING },
+                    totalMarks: { type: Type.NUMBER },
+                    modules: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                id: { type: Type.STRING },
+                                title: { type: Type.STRING },
+                                weightage: { type: Type.NUMBER },
+                                completed: { type: Type.BOOLEAN },
+                                tasks: {
+                                    type: Type.ARRAY,
+                                    items: {
+                                        type: Type.OBJECT,
+                                        properties: {
+                                            id: { type: Type.STRING },
+                                            topic: { type: Type.STRING },
+                                            description: { type: Type.STRING },
+                                            completed: { type: Type.BOOLEAN },
+                                            importantQuestions: { type: Type.ARRAY, items: { type: Type.STRING } }
+                                        },
+                                        required: ["id", "topic", "description", "completed"]
+                                    }
+                                }
+                            },
+                            required: ["id", "title", "weightage", "tasks", "completed"]
+                        }
+                    }
+                },
+                required: ["country", "examBoard", "goal", "totalMarks", "modules"]
+            }
+        }
+    });
+
+    return safeJsonParse(response.text, { country, examBoard, goal, totalMarks: 100, modules: [] } as GlobalStudyPlan);
+};
+
+export const generateConceptExplanation = async (files: UploadedFile[], topic: string): Promise<string> => {
+    const ai = getAiClient();
+    const model = 'gemini-3-flash-preview';
+    const fileParts = files.slice(0, 2).map(fileToGenerativePart);
+    
+    const prompt = `Act as a Lecturer. Summarize "${topic}" with core intuition and 1 example.`;
+
+    const response = await ai.models.generateContent({
+        model,
+        contents: {
+            role: 'user',
+            parts: [...fileParts, { text: prompt }]
+        },
+    });
+    
+    return response.text || "Could not generate lecture content.";
 };

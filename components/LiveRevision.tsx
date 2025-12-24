@@ -53,8 +53,12 @@ const LiveRevision: React.FC<LiveRevisionProps> = ({ files }) => {
             scriptProcessorRef.current = null;
         }
         
-        inputAudioContextRef.current?.close();
-        outputAudioContextRef.current?.close();
+        if (inputAudioContextRef.current && inputAudioContextRef.current.state !== 'closed') {
+            inputAudioContextRef.current.close();
+        }
+        if (outputAudioContextRef.current && outputAudioContextRef.current.state !== 'closed') {
+            outputAudioContextRef.current.close();
+        }
         
         inputAudioContextRef.current = null;
         outputAudioContextRef.current = null;
@@ -69,9 +73,10 @@ const LiveRevision: React.FC<LiveRevisionProps> = ({ files }) => {
         setStatus('Requesting permissions...');
         if (isSessionActive) return;
 
-        const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_API_KEY;
+        // Fix: Use process.env.API_KEY directly as per guidelines.
+        const apiKey = process.env.API_KEY;
         if (!apiKey) {
-            setStatus("API Key error. Check .env");
+            setStatus("API Key error.");
             return;
         }
 
@@ -196,30 +201,30 @@ const LiveRevision: React.FC<LiveRevisionProps> = ({ files }) => {
 
     return (
         <div className="flex flex-col h-full">
-            <div className="flex-none p-4 bg-white border-2 border-slate-200 rounded-2xl flex justify-between items-center mb-4 shadow-sm">
+            <div className="flex-none p-4 bg-white border border-slate-200 rounded-xl flex justify-between items-center mb-4 shadow-sm">
                 <div>
-                    <h3 className="text-lg font-extrabold text-slate-800">Live Socratic Revision</h3>
-                    <p className={`text-xs font-bold uppercase tracking-wide ${isSessionActive ? 'text-green-500' : 'text-slate-400'}`}>{status}</p>
+                    <h3 className="text-lg font-bold text-slate-800">Live Socratic Revision</h3>
+                    <p className={`text-xs font-bold uppercase tracking-wide ${isSessionActive ? 'text-green-600' : 'text-slate-400'}`}>{status}</p>
                 </div>
                 <button
                     onClick={isSessionActive ? stopSession : startSession}
-                    className={`px-6 py-3 rounded-xl font-bold text-white flex items-center gap-2 transition-all border-b-4 active:border-b-0 active:translate-y-1 ${
-                        isSessionActive ? 'bg-red-500 hover:bg-red-600 border-red-700' : 'bg-green-500 hover:bg-green-600 border-green-700'
+                    className={`px-6 py-3 rounded-lg font-bold text-white flex items-center gap-2 transition-all shadow-md active:translate-y-0.5 ${
+                        isSessionActive ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
                     }`}
                 >
-                    {isSessionActive ? <StopCircleIcon className="w-6 h-6" /> : <MicrophoneIcon className="w-6 h-6" />}
+                    {isSessionActive ? <StopCircleIcon className="w-5 h-5" /> : <MicrophoneIcon className="w-5 h-5" />}
                     {isSessionActive ? 'Stop' : 'Start'}
                 </button>
             </div>
-            <div className="flex-1 bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 overflow-y-auto space-y-4">
+            <div className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-4 overflow-y-auto space-y-4 shadow-inner">
                  {transcripts.length === 0 && (
                     <div className="flex items-center justify-center h-full text-slate-400 font-medium">
                         <p>Start the session to revise with your AI Teacher.</p>
                     </div>
                 )}
                 {transcripts.map((t, i) => (
-                    <div key={i} className={`p-4 rounded-2xl max-w-[80%] font-medium shadow-sm ${t.type === 'user' ? 'bg-blue-600 text-white self-end ml-auto rounded-br-none' : 'bg-white text-slate-700 border-2 border-slate-200 self-start rounded-bl-none'}`}>
-                       <span className="font-extrabold uppercase text-xs block mb-1 opacity-70">{t.type === 'model' ? 'Teacher' : 'You'}</span>{t.text}
+                    <div key={i} className={`p-4 rounded-xl max-w-[80%] font-medium shadow-sm ${t.type === 'user' ? 'bg-blue-600 text-white self-end ml-auto rounded-br-none' : 'bg-white text-slate-700 border border-slate-200 self-start rounded-bl-none'}`}>
+                       <span className="font-bold uppercase text-xs block mb-1 opacity-70">{t.type === 'model' ? 'Teacher' : 'You'}</span>{t.text}
                     </div>
                 ))}
             </div>

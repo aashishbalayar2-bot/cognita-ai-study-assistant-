@@ -1,8 +1,8 @@
 {
   "name": "Cognita - AI Revision Tool",
-  "description": "An AI-powered revision tool for students. Upload study materials, generate quizzes, chat with your notes, create revision podcasts with text-to-speech, and engage in real-time spoken revision sessions.",
+  "description": "An AI-powered revision tool for students.",
   "requestFramePermissions": [
-    "microphone",
-    "camera"
+    "camera",
+    "microphone"
   ]
 }

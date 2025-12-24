@@ -1,4 +1,3 @@
-
 import React from 'react';
 import FileUpload from './FileUpload';
 import { UploadedFile } from '../types';
@@ -17,7 +16,7 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({ onClose, onSubjectAdd
   
   return (
     <div 
-      className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
       <div 
@@ -27,10 +26,10 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({ onClose, onSubjectAdd
         <FileUpload onSubjectAdded={handleSubjectAdded} />
         <button 
           onClick={onClose} 
-          className="absolute top-4 right-4 bg-slate-100 text-slate-400 rounded-full p-2 hover:bg-slate-200 hover:text-slate-600 transition-colors"
+          className="absolute top-4 right-4 bg-slate-100 text-slate-500 rounded-full p-2 hover:bg-slate-200 transition-colors"
           aria-label="Close"
         >
-          <XMarkIcon className="w-6 h-6" />
+          <XMarkIcon className="w-5 h-5" />
         </button>
       </div>
     </div>

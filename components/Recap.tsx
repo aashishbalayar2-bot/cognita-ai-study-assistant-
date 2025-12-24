@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { UploadedFile, RecapData, KeyConcept, Flashcard } from '../types';
 import { generateRecap, generateMoreFlashcards } from '../services/geminiService';
@@ -13,13 +12,13 @@ const KeyConceptItem: React.FC<{ item: KeyConcept }> = ({ item }) => {
     const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <div className="border-b-2 border-slate-100 last:border-b-0">
+        <div className="border-b border-slate-100 last:border-b-0">
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full flex justify-between items-center text-left py-4 px-4 hover:bg-slate-50 transition-colors"
             >
                 <span className="font-bold text-slate-700 text-lg">{item.concept}</span>
-                <ChevronDownIcon className={`w-6 h-6 text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDownIcon className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
             {isOpen && (
                 <div className="pb-6 px-4 text-slate-600 leading-relaxed">
@@ -70,28 +69,28 @@ const FlashcardViewer: React.FC<{ flashcards: Flashcard[] }> = ({ flashcards }) 
 
     return (
         <div>
-            <div className="flex justify-center mb-8 gap-2 sm:gap-4 flex-wrap">
+            <div className="flex justify-center mb-8 gap-2 sm:gap-3 flex-wrap">
                 <button 
                     onClick={() => setActiveTab('qa')} 
-                    className={`px-4 sm:px-6 py-2.5 font-bold rounded-xl border-2 border-b-4 active:border-b-2 active:translate-y-0.5 transition-all text-xs sm:text-sm ${activeTab === 'qa' ? 'bg-sky-500 border-sky-700 text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                    className={`px-4 py-2 font-bold rounded-lg border transition-all text-xs sm:text-sm active:translate-y-0.5 ${activeTab === 'qa' ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}
                 >
                     QUESTIONS
                 </button>
                 <button 
                     onClick={() => setActiveTab('definition')}
-                    className={`px-4 sm:px-6 py-2.5 font-bold rounded-xl border-2 border-b-4 active:border-b-2 active:translate-y-0.5 transition-all text-xs sm:text-sm ${activeTab === 'definition' ? 'bg-sky-500 border-sky-700 text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                    className={`px-4 py-2 font-bold rounded-lg border transition-all text-xs sm:text-sm active:translate-y-0.5 ${activeTab === 'definition' ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}
                 >
                     DEFINITIONS
                 </button>
                 <button 
                     onClick={() => setActiveTab('problem')}
-                    className={`px-4 sm:px-6 py-2.5 font-bold rounded-xl border-2 border-b-4 active:border-b-2 active:translate-y-0.5 transition-all text-xs sm:text-sm ${activeTab === 'problem' ? 'bg-sky-500 border-sky-700 text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                    className={`px-4 py-2 font-bold rounded-lg border transition-all text-xs sm:text-sm active:translate-y-0.5 ${activeTab === 'problem' ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}
                 >
                     PROBLEMS
                 </button>
                 <button 
                     onClick={() => setActiveTab('long_answer')}
-                    className={`px-4 sm:px-6 py-2.5 font-bold rounded-xl border-2 border-b-4 active:border-b-2 active:translate-y-0.5 transition-all text-xs sm:text-sm ${activeTab === 'long_answer' ? 'bg-sky-500 border-sky-700 text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                    className={`px-4 py-2 font-bold rounded-lg border transition-all text-xs sm:text-sm active:translate-y-0.5 ${activeTab === 'long_answer' ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}
                 >
                     LONG ANSWERS
                 </button>
@@ -113,16 +112,17 @@ const VisualAidPrompt: React.FC<{ prompt: string }> = ({ prompt }) => {
     };
 
     return (
-        <div className="bg-sky-50 border-2 border-sky-100 rounded-2xl p-6">
-            <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 bg-white p-3 rounded-xl border-2 border-sky-100 text-sky-500 shadow-sm">
+        <div className="bg-white border border-blue-100 rounded-xl p-6 relative overflow-hidden shadow-sm">
+            <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+            <div className="flex items-start gap-4 relative z-10">
+                <div className="flex-shrink-0 bg-blue-50 p-3 rounded-lg border border-blue-100 text-blue-500">
                     <LightBulbIcon className="w-6 h-6" />
                 </div>
                 <div>
-                    <h4 className="font-bold text-lg text-slate-700">Visual Aid Idea</h4>
-                    <p className="text-slate-500 mt-2 italic leading-relaxed">"{prompt}"</p>
+                    <h4 className="font-bold text-lg text-slate-800">Visual Aid Idea</h4>
+                    <p className="text-slate-600 mt-2 italic leading-relaxed">"{prompt}"</p>
                 </div>
-                <button onClick={handleCopy} className="ml-auto flex-shrink-0 p-2 rounded-xl bg-white border-2 border-sky-100 text-slate-400 hover:text-sky-500 hover:border-sky-300 transition-all">
+                <button onClick={handleCopy} className="ml-auto flex-shrink-0 p-2 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-blue-500 hover:border-blue-200 transition-all">
                     {copied ? <CheckIcon className="w-5 h-5 text-green-500" /> : <ClipboardIcon className="w-5 h-5" />}
                 </button>
             </div>
@@ -199,9 +199,9 @@ const Recap: React.FC<{ files: UploadedFile[]; subjectId: string }> = ({ files, 
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center h-full text-center">
-                <SparklesIcon className="w-16 h-16 text-sky-500 animate-pulse mb-4" />
+                <SparklesIcon className="w-12 h-12 text-blue-500 animate-pulse mb-4" />
                 <h3 className="text-xl font-bold text-slate-800">Generating your recap...</h3>
-                <p className="text-slate-400 font-medium">Please wait while our AI builds a summary of your document.</p>
+                <p className="text-slate-500 font-medium">Please wait while our AI builds a summary of your document.</p>
             </div>
         );
     }
@@ -209,10 +209,10 @@ const Recap: React.FC<{ files: UploadedFile[]; subjectId: string }> = ({ files, 
     if (error || !recapData) {
         return (
             <div className="flex flex-col items-center justify-center h-full text-center text-red-500">
-                <XCircleIcon className="w-16 h-16 mb-4" />
+                <XCircleIcon className="w-12 h-12 mb-4" />
                 <h3 className="text-xl font-bold">{error || 'Could not load recap data.'}</h3>
-                <button onClick={() => fetchRecap(true)} className="mt-6 bg-sky-500 hover:bg-sky-400 text-white font-bold py-3 px-6 rounded-2xl flex items-center gap-2 border-b-4 border-sky-700 active:border-b-0 active:translate-y-1">
-                    <ArrowPathIcon className="w-5 h-5" />
+                <button onClick={() => fetchRecap(true)} className="mt-6 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold py-2 px-6 rounded-lg flex items-center gap-2 shadow-sm transition-all active:translate-y-0.5">
+                    <ArrowPathIcon className="w-4 h-4" />
                     Try Again
                 </button>
             </div>
@@ -223,25 +223,25 @@ const Recap: React.FC<{ files: UploadedFile[]; subjectId: string }> = ({ files, 
         <div className="space-y-12 relative">
             {isCached && (
                 <div className="absolute -top-6 right-0">
-                     <span className="text-xs font-bold text-slate-400 bg-white border border-slate-200 px-3 py-1 rounded-full uppercase tracking-wide">Offline Cache</span>
+                     <span className="text-xs font-bold text-slate-400 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full uppercase tracking-wide">Offline Cache</span>
                 </div>
             )}
             {/* Summary Section */}
             <div>
-                <div className="flex items-center justify-between mb-6">
-                     <h2 className="text-2xl font-extrabold text-slate-800">Overall Summary</h2>
-                     <button onClick={() => fetchRecap(true)} className="text-slate-400 hover:text-sky-500 text-xs font-bold uppercase tracking-wide flex items-center gap-1 transition-colors">
+                <div className="flex items-center justify-between mb-4">
+                     <h2 className="text-xl font-extrabold text-slate-800">Overall Summary</h2>
+                     <button onClick={() => fetchRecap(true)} className="text-slate-400 hover:text-blue-600 text-xs font-bold uppercase tracking-wide flex items-center gap-1 transition-colors">
                          <ArrowPathIcon className="w-4 h-4"/> Regenerate
                      </button>
                 </div>
                
-                <p className="text-lg text-slate-600 leading-relaxed bg-white p-6 rounded-3xl border-2 border-slate-200 shadow-sm">{recapData.summary}</p>
+                <p className="text-base text-slate-600 leading-relaxed bg-white p-6 rounded-xl border border-slate-200 shadow-sm">{recapData.summary}</p>
             </div>
 
             {/* Key Concepts Section */}
             <div>
-                <h2 className="text-2xl font-extrabold mb-6 text-slate-800">Key Concepts</h2>
-                <div className="bg-white rounded-3xl border-2 border-slate-200 shadow-sm overflow-hidden">
+                <h2 className="text-xl font-extrabold mb-4 text-slate-800">Key Concepts</h2>
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                     {recapData.keyConcepts.map((item, index) => (
                         <KeyConceptItem key={index} item={item} />
                     ))}
@@ -250,16 +250,16 @@ const Recap: React.FC<{ files: UploadedFile[]; subjectId: string }> = ({ files, 
 
             {/* Flashcards Section */}
             <div>
-                <h2 className="text-2xl font-extrabold mb-8 text-center text-slate-800">Practice Mode</h2>
+                <h2 className="text-xl font-extrabold mb-6 text-center text-slate-800">Practice Mode</h2>
                 <FlashcardViewer flashcards={recapData.flashcards} />
                 <div className="text-center mt-8">
                     <button 
                         onClick={handleGenerateMore} 
                         disabled={isGeneratingMore}
-                        className="bg-white border-2 border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 font-bold py-3 px-6 rounded-2xl flex items-center gap-2 mx-auto transition-all border-b-4 active:border-b-2 active:translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-blue-300 hover:text-blue-600 font-bold py-3 px-6 rounded-lg flex items-center gap-2 mx-auto transition-all active:translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                     >
-                        <ArrowPathIcon className={`w-5 h-5 ${isGeneratingMore ? 'animate-spin' : ''}`} />
-                        {isGeneratingMore ? 'GENERATING...' : 'GENERATE 5 MORE'}
+                        <ArrowPathIcon className={`w-4 h-4 ${isGeneratingMore ? 'animate-spin' : ''}`} />
+                        {isGeneratingMore ? 'Generating...' : 'Generate 5 More'}
                     </button>
                 </div>
             </div>

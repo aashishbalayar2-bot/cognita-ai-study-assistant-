@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -8,10 +9,12 @@
     <meta name="theme-color" content="#f8fafc" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
       body {
-        background-color: #f8fafc; /* bg-slate-50 */
-        color: #334155; /* text-slate-700 */
+        background-color: #f8fafc; /* Slate-50 */
+        color: #334155; /* Slate-700 */
+        font-family: 'Inter', sans-serif;
       }
       
       /* 3D Flashcard Flip Utilities */
@@ -27,6 +30,22 @@
       }
       .rotate-y-180 {
         transform: rotateY(180deg);
+      }
+
+      /* Custom Scrollbar for Light Theme */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1; 
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8; 
       }
     </style>
   <script type="importmap">

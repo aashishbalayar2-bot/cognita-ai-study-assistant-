@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
     ChatBubbleLeftRightIcon,
@@ -33,16 +34,16 @@ const subjectTabs: Tab[] = [
 
 const SubjectTabs: React.FC<SubjectTabsProps> = ({ activeTab, setActiveTab }) => {
   return (
-    <nav className="w-full overflow-x-auto pb-2 scrollbar-hide">
-      <ul className="flex items-center gap-2 min-w-max">
+    <nav className="w-full overflow-x-auto pb-2 scrollbar-hide border-b border-slate-100">
+      <ul className="flex items-center gap-6 min-w-max px-2">
         {subjectTabs.map((tab) => (
           <li key={tab.id}>
             <button
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all duration-200 border-b-4 active:border-b-0 active:translate-y-1 ${
+              className={`flex items-center gap-2 pb-3 text-xs font-bold transition-all duration-200 border-b-2 ${
                 activeTab === tab.id
-                  ? 'bg-sky-500 border-sky-700 text-white'
-                  : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
               }`}
             >
               <tab.icon className="h-4 w-4" />

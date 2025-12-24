@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { UploadedFile } from '../types';
 import { fileToBase64 } from '../utils/fileUtils';
@@ -62,8 +61,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onSubjectAdded }) => {
 
   return (
     <div className="flex flex-col items-center justify-center">
-      <div className="w-full max-w-lg text-center bg-white p-8 rounded-3xl border-2 border-slate-200 shadow-lg">
-        <h2 className="text-3xl font-extrabold mb-8 text-slate-800">Add a New Subject</h2>
+      <div className="w-full max-w-lg text-center bg-white p-8 rounded-2xl border border-slate-200 shadow-lg">
+        <h2 className="text-2xl font-extrabold mb-8 text-slate-800">Add a New Subject</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
             <div>
                  <label htmlFor="subject-name" className="sr-only">Subject Name</label>
@@ -77,7 +76,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onSubjectAdded }) => {
                         value={subjectName}
                         onChange={(e) => setSubjectName(e.target.value)}
                         placeholder="Subject Name (e.g. Biology)"
-                        className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-4 pl-12 pr-4 text-slate-800 placeholder-slate-400 font-bold focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-12 pr-4 text-slate-800 placeholder-slate-400 font-bold focus:outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm"
                         required
                     />
                  </div>
@@ -85,13 +84,13 @@ const FileUpload: React.FC<FileUploadProps> = ({ onSubjectAdded }) => {
 
             <label
               htmlFor="file-upload"
-              className="relative cursor-pointer bg-slate-50 hover:bg-sky-50 border-2 border-dashed border-slate-300 hover:border-sky-400 rounded-2xl p-8 transition-all duration-300 block group"
+              className="relative cursor-pointer bg-slate-50 hover:bg-white border-2 border-dashed border-slate-300 hover:border-blue-400 rounded-xl p-8 transition-all duration-300 block group"
             >
               <div className="flex flex-col items-center">
-                <div className="bg-white p-4 rounded-full border-2 border-slate-200 mb-4 group-hover:border-sky-300 group-hover:scale-110 transition-transform">
-                     <DocumentArrowUpIcon className="w-8 h-8 text-sky-500" />
+                <div className="bg-white p-3 rounded-full border border-slate-200 mb-4 group-hover:scale-110 transition-transform shadow-sm">
+                     <DocumentArrowUpIcon className="w-6 h-6 text-slate-400 group-hover:text-blue-500" />
                 </div>
-                <span className="font-bold text-slate-700 text-lg">
+                <span className="font-bold text-slate-600 text-lg">
                   {file ? file.name : 'Upload study material'}
                 </span>
                 <p className="mt-2 text-xs font-bold text-slate-400 uppercase tracking-wide">
@@ -113,9 +112,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onSubjectAdded }) => {
             <button 
                 type="submit"
                 disabled={isProcessing || !file || !subjectName}
-                className="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold py-4 px-6 rounded-2xl transition-all disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed border-b-4 border-sky-700 active:border-b-0 active:translate-y-1"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed shadow-md active:translate-y-0.5"
             >
-                {isProcessing ? 'Processing...' : 'CREATE SUBJECT'}
+                {isProcessing ? 'Processing...' : 'Create Subject'}
             </button>
         </form>
       </div>

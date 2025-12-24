@@ -6,7 +6,7 @@ import FileUpload from './FileUpload';
 import { decode, encode, decodeAudioData } from '../utils/audioUtils';
 import { 
     SparklesIcon, XMarkIcon, MicrophoneIcon, PaperAirplaneIcon, 
-    StopCircleIcon, DocumentTextIcon 
+    StopCircleIcon, DocumentTextIcon, UserIcon, PlayIcon
 } from './icons/Icons';
 
 // --- Audio Helpers ---
@@ -27,8 +27,9 @@ const QuickStudy: React.FC = () => {
     
     // Session State
     const [isConnected, setIsConnected] = useState(false);
+    const [isConnecting, setIsConnecting] = useState(false);
     const [isMicOn, setIsMicOn] = useState(false);
-    const [status, setStatus] = useState('Initializing...');
+    const [status, setStatus] = useState('Idle');
     const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string }[]>([]);
     const [streamingMessage, setStreamingMessage] = useState<string>(''); // For real-time "highlighting" effect
     const [input, setInput] = useState('');
@@ -56,6 +57,8 @@ const QuickStudy: React.FC = () => {
 
     const handleFileAdded = (name: string, uploadedFile: UploadedFile) => {
         setFile(uploadedFile);
+        setIsConnected(false);
+        setIsConnecting(false);
     };
 
     const stopSession = useCallback(() => {
@@ -71,10 +74,16 @@ const QuickStudy: React.FC = () => {
             scriptProcessorRef.current.disconnect();
             scriptProcessorRef.current = null;
         }
-        inputAudioContextRef.current?.close();
-        outputAudioContextRef.current?.close();
+        
+        if (inputAudioContextRef.current && inputAudioContextRef.current.state !== 'closed') {
+            inputAudioContextRef.current.close();
+        }
+        if (outputAudioContextRef.current && outputAudioContextRef.current.state !== 'closed') {
+            outputAudioContextRef.current.close();
+        }
         
         setIsConnected(false);
+        setIsConnecting(false);
         setIsMicOn(false);
         setStatus('Session Ended');
     }, []);
@@ -90,9 +99,16 @@ const QuickStudy: React.FC = () => {
     };
 
     const connect = async () => {
-        if (!file) return;
+        if (!file || isConnecting) return;
+        setIsConnecting(true);
         setStatus('Connecting to Professor Zero...');
-        const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_API_KEY;
+        
+        const apiKey = process.env.API_KEY;
+        if (!apiKey) {
+            setStatus('API Key Missing');
+            setIsConnecting(false);
+            return;
+        }
 
         try {
             // Setup Audio Contexts
@@ -122,6 +138,7 @@ const QuickStudy: React.FC = () => {
                 callbacks: {
                     onopen: () => {
                         setIsConnected(true);
+                        setIsConnecting(false);
                         setStatus('Professor Zero is Online');
                         
                         sessionPromiseRef.current?.then(session => {
@@ -164,14 +181,12 @@ const QuickStudy: React.FC = () => {
                         scriptProcessor.connect(inputAudioContextRef.current!.destination);
                     },
                     onmessage: async (message: LiveServerMessage) => {
-                        // Handle Transcripts
                         if (message.serverContent?.inputTranscription) {
                             currentInputTranscription.current += message.serverContent.inputTranscription.text;
                         }
                         if (message.serverContent?.outputTranscription) {
                             const text = message.serverContent.outputTranscription.text;
                             currentOutputTranscription.current += text;
-                            // Update streaming message for visual effect
                             setStreamingMessage(currentOutputTranscription.current);
                         }
                         
@@ -191,12 +206,9 @@ const QuickStudy: React.FC = () => {
                             setStreamingMessage(''); // Clear streaming buffer
                         }
 
-                        // Handle Audio Output
                         const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
                         if (base64Audio) {
                             const ctx = outputAudioContextRef.current!;
-                            
-                            // Resume if suspended (browser policy)
                             if (ctx.state === 'suspended') await ctx.resume();
 
                             nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
@@ -214,34 +226,34 @@ const QuickStudy: React.FC = () => {
                              audioSourcesRef.current.forEach(source => source.stop());
                              audioSourcesRef.current.clear();
                              nextStartTimeRef.current = 0;
-                             setStreamingMessage(''); // Clear if interrupted
+                             setStreamingMessage('');
                         }
                     },
                     onclose: () => stopSession(),
-                    onerror: (e) => { console.error(e); stopSession(); }
+                    onerror: (e) => { 
+                        console.error(e); 
+                        setStatus('Connection Lost');
+                        stopSession(); 
+                    }
                 }
             });
 
         } catch (e) {
             console.error(e);
-            setStatus('Connection Failed');
+            setStatus('Hardware Access Denied');
+            setIsConnecting(false);
         }
     };
 
     useEffect(() => {
-        if (file) {
-            connect();
-        }
         return () => stopSession();
-    }, [file]);
+    }, [stopSession]);
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!input.trim()) return;
         
         await resumeAudio(); // Ensure audio context is running
-
-        // Add to UI immediately for better feel
         setMessages(prev => [...prev, { role: 'user', text: input }]);
         
         sessionPromiseRef.current?.then(session => {
@@ -259,8 +271,8 @@ const QuickStudy: React.FC = () => {
         return (
             <div className="h-full flex flex-col items-center justify-center p-4">
                 <div className="max-w-xl w-full text-center mb-8">
-                    <div className="bg-blue-100 p-6 rounded-full inline-block mb-6">
-                        <SparklesIcon className="w-12 h-12 text-blue-500" />
+                    <div className="bg-white p-6 rounded-full inline-block mb-6 border border-slate-200">
+                        <SparklesIcon className="w-12 h-12 text-blue-600" />
                     </div>
                      <h2 className="text-3xl font-extrabold text-slate-800 mb-2">Professor Zero's Quick Study</h2>
                      <p className="text-slate-500 font-medium text-lg">Upload any document. Professor Zero will explain it step-by-step.</p>
@@ -274,12 +286,49 @@ const QuickStudy: React.FC = () => {
     const dataUri = `data:${file.mimeType};base64,${file.base64}`;
 
     return (
-        <div className="flex flex-col h-full bg-white border-2 border-slate-200 rounded-3xl overflow-hidden shadow-sm relative">
+        <div className="flex flex-col h-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm relative">
+            {/* Start Overlay (Ensures user click for hardware) */}
+            {!isConnected && (
+                <div className="absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center p-6 text-center">
+                    <div className="max-w-md">
+                        <div className="h-20 w-20 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-blue-100">
+                            {isImage ? (
+                                <img src={dataUri} alt="preview" className="h-16 w-16 object-cover rounded-lg" />
+                            ) : (
+                                <DocumentTextIcon className="h-10 w-10 text-blue-500" />
+                            )}
+                        </div>
+                        <h3 className="text-2xl font-black text-slate-800 mb-2">{file.name}</h3>
+                        <p className="text-slate-500 font-medium mb-8">
+                            Click below to start an interactive study session with Professor Zero. We'll need microphone access to talk!
+                        </p>
+                        <div className="flex flex-col gap-3">
+                            <button 
+                                onClick={connect}
+                                disabled={isConnecting}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50"
+                            >
+                                {isConnecting ? <SparklesIcon className="w-6 h-6 animate-spin" /> : <PlayIcon className="w-6 h-6" />}
+                                {isConnecting ? 'Initializing...' : 'Start Learning Session'}
+                            </button>
+                            <button 
+                                onClick={() => { setFile(null); stopSession(); }}
+                                className="text-slate-400 font-bold text-sm uppercase hover:text-slate-600"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                        {status !== 'Idle' && status !== 'Professor Zero is Online' && (
+                            <p className="mt-4 text-xs font-bold text-red-500 uppercase tracking-widest">{status}</p>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Header & File Preview */}
-            <div className="flex-shrink-0 p-4 border-b-2 border-slate-100 bg-slate-50 flex items-center justify-between">
+            <div className="flex-shrink-0 p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    {/* Small preview of the file being studied */}
-                    <div className="h-12 w-12 bg-white rounded-lg border-2 border-slate-200 overflow-hidden flex items-center justify-center">
+                    <div className="h-12 w-12 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
                         {isImage ? (
                             <img src={dataUri} alt="preview" className="h-full w-full object-cover" />
                         ) : (
@@ -296,46 +345,37 @@ const QuickStudy: React.FC = () => {
                 </div>
                 <button 
                     onClick={() => { setFile(null); stopSession(); }}
-                    className="p-2 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+                    className="p-2 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
                 >
-                    <XMarkIcon className="w-6 h-6" />
+                    <XMarkIcon className="w-5 h-5" />
                 </button>
             </div>
             
             {/* Chat Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white">
-                {messages.length === 0 && !streamingMessage && (
-                    <div className="text-center mt-12 opacity-50">
-                        <SparklesIcon className="w-12 h-12 text-slate-300 mx-auto mb-2" />
-                        <p className="font-bold text-slate-400">Professor Zero is analyzing...</p>
-                    </div>
-                )}
-                
-                {/* Historical Messages */}
                 {messages.map((msg, idx) => (
                     <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         {msg.role === 'model' && (
-                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 self-end mb-1">
-                                <SparklesIcon className="w-5 h-5 text-blue-500" />
+                            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0 self-end mb-1">
+                                <SparklesIcon className="w-5 h-5 text-blue-600" />
                             </div>
                         )}
-                        <div className={`p-4 rounded-2xl max-w-[85%] font-medium text-sm leading-relaxed shadow-sm whitespace-pre-wrap ${
+                        <div className={`p-3 rounded-xl max-w-[85%] font-medium text-sm leading-relaxed shadow-sm whitespace-pre-wrap ${
                             msg.role === 'user' 
-                            ? 'bg-blue-500 text-white rounded-br-none' 
-                            : 'bg-slate-50 border-2 border-slate-100 text-slate-700 rounded-bl-none'
+                            ? 'bg-blue-600 text-white rounded-br-none' 
+                            : 'bg-white border border-slate-200 text-slate-700 rounded-bl-none'
                         }`}>
                             {msg.text}
                         </div>
                     </div>
                 ))}
 
-                {/* Real-time Streaming Bubble */}
                 {streamingMessage && (
                     <div className="flex gap-3 justify-start animate-in fade-in slide-in-from-bottom-2">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 self-end mb-1">
-                            <SparklesIcon className="w-5 h-5 text-blue-500 animate-pulse" />
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0 self-end mb-1">
+                            <SparklesIcon className="w-5 h-5 text-blue-600 animate-pulse" />
                         </div>
-                        <div className="p-4 rounded-2xl max-w-[85%] font-medium text-sm leading-relaxed shadow-md bg-white border-2 border-blue-200 text-slate-800 rounded-bl-none ring-2 ring-blue-50">
+                        <div className="p-3 rounded-xl max-w-[85%] font-medium text-sm leading-relaxed shadow-md bg-white border border-slate-200 text-slate-700 rounded-bl-none">
                             {streamingMessage}
                             <span className="inline-block w-2 h-4 bg-blue-500 ml-1 align-middle animate-pulse"></span>
                         </div>
@@ -346,26 +386,25 @@ const QuickStudy: React.FC = () => {
             </div>
 
             {/* Input Area */}
-            <div className="p-4 border-t-2 border-slate-100 bg-white">
+            <div className="p-4 border-t border-slate-200 bg-white">
                 <div className="flex items-center gap-2 max-w-3xl mx-auto">
                     <button 
                         onClick={toggleMic}
-                        className={`p-4 rounded-2xl transition-all duration-300 border-2 ${
+                        className={`p-3 rounded-lg transition-all duration-300 border ${
                             isMicOn 
-                            ? 'bg-red-500 border-red-600 text-white shadow-lg scale-105' 
-                            : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200'
+                            ? 'bg-red-50 border-red-200 text-red-500 shadow-sm scale-105' 
+                            : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100'
                         }`}
                     >
-                        {isMicOn ? <StopCircleIcon className="w-6 h-6 animate-pulse" /> : <MicrophoneIcon className="w-6 h-6" />}
+                        {isMicOn ? <StopCircleIcon className="w-5 h-5 animate-pulse" /> : <MicrophoneIcon className="w-5 h-5" />}
                     </button>
 
-                    {/* Mic Visualizer (only visible when on) */}
                     {isMicOn && (
-                        <div className="flex-1 h-12 bg-slate-50 rounded-2xl border-2 border-slate-100 flex items-center justify-center px-4 gap-1 overflow-hidden">
+                        <div className="flex-1 h-12 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-center px-4 gap-1 overflow-hidden">
                             {[...Array(20)].map((_, i) => (
                                 <div 
                                     key={i} 
-                                    className="w-1 bg-red-400 rounded-full transition-all duration-75"
+                                    className="w-1 bg-red-500 rounded-full transition-all duration-75"
                                     style={{ height: `${Math.max(10, Math.min(100, audioVolume * (Math.random() + 0.5)))}%` }}
                                 />
                             ))}
@@ -378,14 +417,14 @@ const QuickStudy: React.FC = () => {
                                 value={input}
                                 onChange={e => setInput(e.target.value)}
                                 placeholder="Chat with Professor Zero..."
-                                className="flex-1 bg-slate-50 border-2 border-slate-200 rounded-2xl px-4 font-bold text-slate-700 focus:outline-none focus:border-blue-500 transition-colors"
+                                className="flex-1 bg-white border border-slate-200 rounded-lg px-4 font-medium text-slate-700 focus:outline-none focus:border-blue-500 transition-colors placeholder-slate-400"
                             />
                             <button 
                                 type="submit" 
                                 disabled={!input.trim()}
-                                className="p-4 bg-blue-500 hover:bg-blue-400 text-white rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed border-b-4 border-blue-700 active:border-b-0 active:translate-y-1"
+                                className="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:translate-y-0.5"
                             >
-                                <PaperAirplaneIcon className="w-6 h-6" />
+                                <PaperAirplaneIcon className="w-5 h-5" />
                             </button>
                         </form>
                     )}

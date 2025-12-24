@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Flashcard } from '../types';
 import { 
@@ -146,7 +145,7 @@ const FlashcardStudySession: React.FC<FlashcardStudySessionProps> = ({ cards, ca
     };
 
     if (!cards || cards.length === 0) {
-        return <p className="text-center text-slate-400 font-bold h-64 flex items-center justify-center">No cards available.</p>;
+        return <p className="text-center text-slate-500 font-bold h-64 flex items-center justify-center">No cards available.</p>;
     }
 
     // Determine which card to show
@@ -157,8 +156,8 @@ const FlashcardStudySession: React.FC<FlashcardStudySessionProps> = ({ cards, ca
     if (isSessionComplete) {
         return (
             <div className="flex flex-col items-center justify-center h-80 text-center space-y-6 animate-in zoom-in-95 duration-300">
-                <div className="bg-sky-100 p-6 rounded-full">
-                    {mode === 'speed' ? <FireIcon className="w-12 h-12 text-sky-600" /> : <CheckCircleIcon className="w-12 h-12 text-green-500" />}
+                <div className="bg-white p-6 rounded-full border border-slate-200 shadow-sm">
+                    {mode === 'speed' ? <FireIcon className="w-12 h-12 text-blue-500" /> : <CheckCircleIcon className="w-12 h-12 text-green-500" />}
                 </div>
                 <div>
                     <h3 className="text-3xl font-extrabold text-slate-800">
@@ -170,7 +169,7 @@ const FlashcardStudySession: React.FC<FlashcardStudySessionProps> = ({ cards, ca
                 </div>
                 <button 
                     onClick={mode === 'speed' ? startGame : resetSession}
-                    className="bg-sky-500 hover:bg-sky-400 text-white font-bold py-3 px-8 rounded-2xl border-b-4 border-sky-700 active:border-b-0 active:translate-y-1 transition-all flex items-center gap-2"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-all flex items-center gap-2 active:translate-y-0.5"
                 >
                     <ArrowPathIcon className="w-5 h-5" />
                     {mode === 'speed' ? 'Play Again' : 'Practice Again'}
@@ -182,25 +181,25 @@ const FlashcardStudySession: React.FC<FlashcardStudySessionProps> = ({ cards, ca
     return (
         <div className="flex flex-col items-center w-full max-w-lg mx-auto">
             {/* Mode Selector */}
-            <div className="flex bg-slate-100 p-1 rounded-2xl mb-8 w-full">
+            <div className="flex bg-slate-100 p-1 rounded-xl mb-8 w-full border border-slate-200">
                 <button 
                     onClick={() => setMode('browse')} 
                     disabled={isGameActive}
-                    className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${mode === 'browse' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'browse' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                     Browse
                 </button>
                 <button 
                     onClick={() => setMode('speed')} 
                     disabled={isGameActive}
-                    className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-1 ${mode === 'speed' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1 ${mode === 'speed' ? 'bg-white text-blue-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                     <ClockIcon className="w-4 h-4"/> Speed
                 </button>
                 <button 
                     onClick={() => setMode('smart')} 
                     disabled={isGameActive}
-                    className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-1 ${mode === 'smart' ? 'bg-white text-green-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1 ${mode === 'smart' ? 'bg-white text-green-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                     <SparklesIcon className="w-4 h-4"/> Smart
                 </button>
@@ -212,7 +211,7 @@ const FlashcardStudySession: React.FC<FlashcardStudySessionProps> = ({ cards, ca
                     <div className={`flex items-center gap-2 font-black text-2xl ${timeLeft < 10 ? 'text-red-500 animate-pulse' : 'text-slate-700'}`}>
                         <ClockIcon className="w-6 h-6" /> {timeLeft}s
                     </div>
-                    <div className="flex items-center gap-2 font-black text-xl text-sky-500">
+                    <div className="flex items-center gap-2 font-black text-xl text-blue-600">
                         <FireIcon className="w-6 h-6" /> {score}
                     </div>
                 </div>
@@ -221,23 +220,23 @@ const FlashcardStudySession: React.FC<FlashcardStudySessionProps> = ({ cards, ca
              {mode === 'smart' && (
                 <div className="flex items-center justify-between w-full mb-4 px-2">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Queue: {studyQueue.length}</span>
-                    <span className="text-xs font-bold text-green-500 uppercase tracking-wider">Mastered: {masteredCount}</span>
+                    <span className="text-xs font-bold text-green-600 uppercase tracking-wider">Mastered: {masteredCount}</span>
                 </div>
             )}
 
             {/* Start Screen for Speed Mode */}
             {mode === 'speed' && !isGameActive ? (
-                 <div className="h-72 w-full bg-blue-50 border-2 border-blue-200 rounded-3xl flex flex-col items-center justify-center text-center p-6 space-y-6">
-                    <ClockIcon className="w-16 h-16 text-blue-400" />
+                 <div className="h-72 w-full bg-white border border-blue-100 rounded-xl flex flex-col items-center justify-center text-center p-6 space-y-6 shadow-sm">
+                    <ClockIcon className="w-16 h-16 text-blue-500" />
                     <div>
-                        <h3 className="text-xl font-extrabold text-blue-900">Speed Run Challenge</h3>
-                        <p className="text-blue-600 font-medium">60 seconds. How many can you get?</p>
+                        <h3 className="text-xl font-extrabold text-slate-800">Speed Run Challenge</h3>
+                        <p className="text-blue-500 font-medium">60 seconds. How many can you get?</p>
                     </div>
                     <button 
                         onClick={startGame}
-                        className="bg-blue-500 hover:bg-blue-400 text-white font-bold py-3 px-8 rounded-2xl border-b-4 border-blue-700 active:border-b-0 active:translate-y-1 transition-all"
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-all active:translate-y-0.5"
                     >
-                        START TIMER
+                        Start Timer
                     </button>
                 </div>
             ) : (
@@ -248,14 +247,14 @@ const FlashcardStudySession: React.FC<FlashcardStudySessionProps> = ({ cards, ca
                         onClick={() => setIsFlipped(!isFlipped)}
                     >
                         {/* Front */}
-                        <div className="absolute w-full h-full backface-hidden bg-white border-2 border-slate-200 rounded-3xl p-8 flex flex-col justify-center items-center text-center cursor-pointer shadow-sm hover:border-sky-300 transition-colors">
-                            <p className="text-xs font-extrabold text-sky-500 uppercase tracking-widest mb-4">{getFrontLabel()}</p>
+                        <div className="absolute w-full h-full backface-hidden bg-white border border-slate-200 rounded-xl p-8 flex flex-col justify-center items-center text-center cursor-pointer shadow-md hover:border-blue-300 transition-colors">
+                            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4">{getFrontLabel()}</p>
                             <p className="text-xl font-bold text-slate-800 overflow-y-auto max-h-48 scrollbar-hide">{activeCard.front}</p>
                             <p className="text-xs text-slate-400 font-bold uppercase tracking-wide mt-auto pt-4">Tap to flip</p>
                         </div>
                         {/* Back */}
-                        <div className="absolute w-full h-full backface-hidden bg-sky-50 border-2 border-sky-200 rounded-3xl p-8 flex flex-col justify-center items-center text-center cursor-pointer rotate-y-180 shadow-sm">
-                            <p className="text-xs font-extrabold text-sky-500 uppercase tracking-widest mb-4">{getBackLabel()}</p>
+                        <div className="absolute w-full h-full backface-hidden bg-slate-50 border border-slate-200 rounded-xl p-8 flex flex-col justify-center items-center text-center cursor-pointer rotate-y-180 shadow-md">
+                            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4">{getBackLabel()}</p>
                             <p className="text-lg font-medium text-slate-700 overflow-y-auto max-h-48 scrollbar-hide whitespace-pre-wrap">{activeCard.back}</p>
                         </div>
                     </div>
@@ -267,11 +266,11 @@ const FlashcardStudySession: React.FC<FlashcardStudySessionProps> = ({ cards, ca
                  {/* Browse Controls */}
                 {mode === 'browse' && (
                     <div className="flex items-center justify-between w-full">
-                        <button onClick={handlePrev} className="p-4 rounded-2xl bg-white border-2 border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors border-b-4 active:border-b-2 active:translate-y-0.5">
+                        <button onClick={handlePrev} className="p-4 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors active:scale-95 shadow-sm">
                             <ChevronLeftIcon className="w-6 h-6" />
                         </button>
                         <span className="text-slate-400 font-bold text-sm uppercase tracking-widest">{currentIndex + 1} / {cards.length}</span>
-                        <button onClick={handleNext} className="p-4 rounded-2xl bg-white border-2 border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors border-b-4 active:border-b-2 active:translate-y-0.5">
+                        <button onClick={handleNext} className="p-4 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors active:scale-95 shadow-sm">
                             <ChevronRightIcon className="w-6 h-6" />
                         </button>
                     </div>
@@ -283,14 +282,14 @@ const FlashcardStudySession: React.FC<FlashcardStudySessionProps> = ({ cards, ca
                         <button 
                             onClick={() => handleSpeedAnswer(false)} 
                             disabled={!isFlipped}
-                            className={`flex-1 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 border-b-4 active:border-b-0 active:translate-y-1 transition-all ${!isFlipped ? 'bg-slate-100 text-slate-300 border-slate-200' : 'bg-red-100 text-red-600 border-red-300 hover:bg-red-200'}`}
+                            className={`flex-1 py-4 rounded-xl font-bold flex items-center justify-center gap-2 active:translate-y-0.5 transition-all shadow-sm ${!isFlipped ? 'bg-slate-100 text-slate-400 border border-slate-200' : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'}`}
                         >
                             <XCircleIcon className="w-6 h-6"/> Missed
                         </button>
                         <button 
                             onClick={() => handleSpeedAnswer(true)} 
                              disabled={!isFlipped}
-                            className={`flex-1 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 border-b-4 active:border-b-0 active:translate-y-1 transition-all ${!isFlipped ? 'bg-slate-100 text-slate-300 border-slate-200' : 'bg-green-100 text-green-600 border-green-300 hover:bg-green-200'}`}
+                            className={`flex-1 py-4 rounded-xl font-bold flex items-center justify-center gap-2 active:translate-y-0.5 transition-all shadow-sm ${!isFlipped ? 'bg-slate-100 text-slate-400 border border-slate-200' : 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'}`}
                         >
                             <CheckCircleIcon className="w-6 h-6"/> Got it
                         </button>
@@ -303,21 +302,21 @@ const FlashcardStudySession: React.FC<FlashcardStudySessionProps> = ({ cards, ca
                         <button 
                             onClick={() => handleSmartRating('hard')} 
                             disabled={!isFlipped}
-                            className={`flex-1 py-3 rounded-2xl font-bold border-b-4 active:border-b-0 active:translate-y-1 transition-all text-sm ${!isFlipped ? 'bg-slate-100 text-slate-300 border-slate-200' : 'bg-red-100 text-red-600 border-red-300 hover:bg-red-200'}`}
+                            className={`flex-1 py-3 rounded-xl font-bold active:translate-y-0.5 transition-all text-sm shadow-sm ${!isFlipped ? 'bg-slate-100 text-slate-400 border border-slate-200' : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'}`}
                         >
                             Hard
                         </button>
                         <button 
                             onClick={() => handleSmartRating('good')} 
                             disabled={!isFlipped}
-                            className={`flex-1 py-3 rounded-2xl font-bold border-b-4 active:border-b-0 active:translate-y-1 transition-all text-sm ${!isFlipped ? 'bg-slate-100 text-slate-300 border-slate-200' : 'bg-yellow-100 text-yellow-600 border-yellow-300 hover:bg-yellow-200'}`}
+                            className={`flex-1 py-3 rounded-xl font-bold active:translate-y-0.5 transition-all text-sm shadow-sm ${!isFlipped ? 'bg-slate-100 text-slate-400 border border-slate-200' : 'bg-yellow-50 text-yellow-600 border border-yellow-200 hover:bg-yellow-100'}`}
                         >
                             Good
                         </button>
                         <button 
                             onClick={() => handleSmartRating('easy')} 
                             disabled={!isFlipped}
-                            className={`flex-1 py-3 rounded-2xl font-bold border-b-4 active:border-b-0 active:translate-y-1 transition-all text-sm ${!isFlipped ? 'bg-slate-100 text-slate-300 border-slate-200' : 'bg-green-100 text-green-600 border-green-300 hover:bg-green-200'}`}
+                            className={`flex-1 py-3 rounded-xl font-bold active:translate-y-0.5 transition-all text-sm shadow-sm ${!isFlipped ? 'bg-slate-100 text-slate-400 border border-slate-200' : 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'}`}
                         >
                             Easy
                         </button>
@@ -325,7 +324,7 @@ const FlashcardStudySession: React.FC<FlashcardStudySessionProps> = ({ cards, ca
                 )}
             </div>
             
-            <p className="mt-4 text-xs font-bold text-slate-300 uppercase tracking-wide">
+            <p className="mt-4 text-xs font-bold text-slate-400 uppercase tracking-wide">
                 {isFlipped ? 'Select an option to continue' : 'Tap card to reveal answer'}
             </p>
         </div>

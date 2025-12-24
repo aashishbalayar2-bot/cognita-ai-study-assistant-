@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality, Blob as GenAiBlob } from '@google/genai';
 import { decode, encode, decodeAudioData } from '../utils/audioUtils';
 import { generateTeachingFeedback } from '../services/geminiService';
@@ -79,6 +79,17 @@ const TeachAI: React.FC = () => {
         }
     };
 
+    useEffect(() => {
+        if (report && report.clarityRating === 'High' && window.confetti) {
+            window.confetti({
+                particleCount: 150,
+                spread: 80,
+                origin: { y: 0.6 },
+                colors: ['#2563eb', '#3b82f6', '#60a5fa']
+            });
+        }
+    }, [report]);
+
     const stopSession = useCallback(async () => {
         if (sessionPromiseRef.current) {
             sessionPromiseRef.current.then(session => session.close());
@@ -100,8 +111,12 @@ const TeachAI: React.FC = () => {
             scriptProcessorRef.current = null;
         }
         
-        inputAudioContextRef.current?.close();
-        outputAudioContextRef.current?.close();
+        if (inputAudioContextRef.current && inputAudioContextRef.current.state !== 'closed') {
+            inputAudioContextRef.current.close();
+        }
+        if (outputAudioContextRef.current && outputAudioContextRef.current.state !== 'closed') {
+            outputAudioContextRef.current.close();
+        }
         
         setIsSessionActive(false);
         setStatus('Generating Report...');
@@ -123,7 +138,8 @@ const TeachAI: React.FC = () => {
         if (!topic.trim()) return;
 
         setStatus('Connecting to student...');
-        const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_API_KEY;
+        // Fix: Use process.env.API_KEY directly as per guidelines.
+        const apiKey = process.env.API_KEY;
 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -246,14 +262,14 @@ const TeachAI: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full bg-white border-2 border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+        <div className="flex flex-col h-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
             {/* Header */}
-            <div className="flex-shrink-0 p-6 border-b-2 border-slate-100 flex items-center justify-between">
+            <div className="flex-shrink-0 p-6 border-b border-slate-200 flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-extrabold text-slate-800">Teach the AI</h2>
-                    <p className="text-slate-500 font-medium">The Feynman Technique: Learn by teaching.</p>
+                    <h2 className="text-2xl font-bold text-slate-800">Teach the AI</h2>
+                    <p className="text-slate-500 font-medium text-sm">The Feynman Technique: Learn by teaching.</p>
                 </div>
-                <div className={`px-4 py-2 rounded-xl font-bold text-sm uppercase tracking-wide ${isSessionActive ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'}`}>
+                <div className={`px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wide ${isSessionActive ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-500'}`}>
                     {status}
                 </div>
             </div>
@@ -262,28 +278,28 @@ const TeachAI: React.FC = () => {
                 {/* Setup Mode */}
                 {!isSessionActive && !report && !isLoadingReport && (
                     <div className="max-w-xl mx-auto space-y-6">
-                        <div className="bg-white p-6 rounded-3xl border-2 border-slate-200 shadow-sm">
-                            <label className="block font-bold text-slate-700 mb-2">What topic will you teach?</label>
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <label className="block font-bold text-slate-700 mb-2 text-sm uppercase tracking-wide">What topic will you teach?</label>
                             <input 
                                 type="text" 
                                 value={topic}
                                 onChange={e => setTopic(e.target.value)}
                                 placeholder="e.g. Thermodynamics, The French Revolution"
-                                className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 font-bold focus:outline-none focus:border-blue-500 transition-colors"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg py-3 px-4 font-medium text-slate-800 focus:outline-none focus:border-blue-500 transition-colors"
                             />
                         </div>
 
                         {/* File Upload for Context */}
-                        <div className="bg-white p-6 rounded-3xl border-2 border-slate-200 shadow-sm">
-                            <label className="block font-bold text-slate-700 mb-2">Upload Context (Optional)</label>
-                             <p className="text-sm text-slate-400 mb-4 font-medium">Share a photo (e.g., derivative) or text note to help the AI understand.</p>
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <label className="block font-bold text-slate-700 mb-2 text-sm uppercase tracking-wide">Upload Context (Optional)</label>
+                             <p className="text-sm text-slate-500 mb-4 font-medium">Share a photo (e.g., derivative) or text note to help the AI understand.</p>
                              
                              <label className="flex items-center gap-3 cursor-pointer group">
-                                <div className="bg-sky-50 group-hover:bg-sky-100 p-3 rounded-xl border-2 border-sky-100 group-hover:border-sky-300 transition-colors">
-                                     <DocumentArrowUpIcon className="w-6 h-6 text-sky-500" />
+                                <div className="bg-slate-50 group-hover:bg-blue-50 p-3 rounded-lg border border-slate-200 group-hover:border-blue-200 transition-colors">
+                                     <DocumentArrowUpIcon className="w-5 h-5 text-blue-500" />
                                 </div>
                                 <div className="flex-1">
-                                    <span className="font-bold text-slate-600 block group-hover:text-sky-600 transition-colors">
+                                    <span className="font-bold text-slate-700 block group-hover:text-blue-600 transition-colors text-sm">
                                         {uploadedFile ? uploadedFile.name : 'Choose Image or Text File'}
                                     </span>
                                      <span className="text-xs font-bold text-slate-400 uppercase">Max 5MB</span>
@@ -306,25 +322,25 @@ const TeachAI: React.FC = () => {
                              )}
                         </div>
 
-                        <div className="flex items-center justify-between bg-white p-6 rounded-3xl border-2 border-slate-200 shadow-sm">
+                        <div className="flex items-center justify-between bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                             <div>
-                                <h3 className="font-bold text-slate-800">Correct Me Mode</h3>
+                                <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">Correct Me Mode</h3>
                                 <p className="text-sm text-slate-500 font-medium">The AI will interrupt if you make a mistake.</p>
                             </div>
                             <button 
                                 onClick={() => setCorrectMeMode(!correctMeMode)}
-                                className={`w-14 h-8 rounded-full p-1 transition-colors ${correctMeMode ? 'bg-blue-500' : 'bg-slate-300'}`}
+                                className={`w-12 h-7 rounded-full p-1 transition-colors ${correctMeMode ? 'bg-blue-600' : 'bg-slate-200'}`}
                             >
-                                <div className={`w-6 h-6 bg-white rounded-full shadow-sm transition-transform ${correctMeMode ? 'translate-x-6' : 'translate-x-0'}`} />
+                                <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${correctMeMode ? 'translate-x-5' : 'translate-x-0'}`} />
                             </button>
                         </div>
 
                         <button 
                             onClick={startSession}
                             disabled={!topic.trim() || isProcessingFile}
-                            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 border-b-4 border-blue-800 active:border-b-0 active:translate-y-1 transition-all disabled:opacity-50"
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 shadow-md active:translate-y-0.5 transition-all disabled:opacity-50"
                         >
-                            <UserGroupIcon className="w-6 h-6" />
+                            <UserGroupIcon className="w-5 h-5" />
                             Start Class
                         </button>
                     </div>
@@ -333,7 +349,7 @@ const TeachAI: React.FC = () => {
                 {/* Live Session Mode */}
                 {isSessionActive && (
                     <div className="h-full flex flex-col items-center justify-center space-y-6">
-                        <div className="relative w-full max-w-2xl aspect-video bg-black rounded-3xl overflow-hidden border-4 border-slate-200 shadow-lg">
+                        <div className="relative w-full max-w-2xl aspect-video bg-black rounded-xl overflow-hidden border border-slate-200 shadow-lg">
                             <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
                             <canvas ref={canvasRef} className="hidden" />
                             <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-2">
@@ -341,7 +357,7 @@ const TeachAI: React.FC = () => {
                                 <span className="text-white text-xs font-bold uppercase">On Air</span>
                             </div>
                              {uploadedFile && (
-                                <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-md px-3 py-1 rounded-xl flex items-center gap-2">
+                                <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-md px-3 py-1 rounded-lg flex items-center gap-2">
                                     <DocumentTextIcon className="w-4 h-4 text-white" />
                                     <span className="text-white text-xs font-bold truncate max-w-[150px]">{uploadedFile.name} shared</span>
                                 </div>
@@ -349,9 +365,9 @@ const TeachAI: React.FC = () => {
                         </div>
                         <button 
                             onClick={stopSession}
-                            className="bg-red-500 hover:bg-red-400 text-white font-bold py-4 px-12 rounded-2xl flex items-center gap-3 border-b-4 border-red-700 active:border-b-0 active:translate-y-1 transition-all shadow-md"
+                            className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-12 rounded-xl flex items-center gap-2 shadow-md active:translate-y-0.5 transition-all"
                         >
-                            <StopCircleIcon className="w-8 h-8" />
+                            <StopCircleIcon className="w-6 h-6" />
                             Finish Class
                         </button>
                     </div>
@@ -359,8 +375,8 @@ const TeachAI: React.FC = () => {
 
                 {/* Report Card Mode */}
                 {isLoadingReport && (
-                    <div className="flex flex-col items-center justify-center h-full">
-                        <SparklesIcon className="w-16 h-16 text-blue-500 animate-pulse mb-4" />
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                        <SparklesIcon className="w-12 h-12 text-blue-600 animate-pulse mb-4" />
                         <h3 className="text-xl font-bold text-slate-800">Grading your teaching...</h3>
                     </div>
                 )}
@@ -368,16 +384,16 @@ const TeachAI: React.FC = () => {
                 {report && (
                     <div className="max-w-2xl mx-auto space-y-6">
                         <div className="flex items-center justify-between">
-                             <h3 className="text-3xl font-extrabold text-slate-800">Teaching Report</h3>
-                             <button onClick={() => { setReport(null); setTopic(''); setUploadedFile(null); }} className="text-blue-500 font-bold hover:underline">Teach Another Topic</button>
+                             <h3 className="text-2xl font-bold text-slate-800">Teaching Report</h3>
+                             <button onClick={() => { setReport(null); setTopic(''); setUploadedFile(null); }} className="text-blue-600 font-bold hover:underline text-sm">Teach Another Topic</button>
                         </div>
                        
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-white p-6 rounded-3xl border-2 border-slate-200 text-center shadow-sm">
+                            <div className="bg-white p-6 rounded-xl border border-slate-200 text-center shadow-sm">
                                 <span className="block text-slate-400 font-bold uppercase text-xs tracking-widest mb-2">Teaching Score</span>
                                 <span className="text-5xl font-extrabold text-blue-600">{report.score}%</span>
                             </div>
-                            <div className="bg-white p-6 rounded-3xl border-2 border-slate-200 text-center shadow-sm">
+                            <div className="bg-white p-6 rounded-xl border border-slate-200 text-center shadow-sm">
                                 <span className="block text-slate-400 font-bold uppercase text-xs tracking-widest mb-2">Clarity</span>
                                 <span className={`text-4xl font-extrabold ${report.clarityRating === 'High' ? 'text-green-500' : report.clarityRating === 'Medium' ? 'text-yellow-500' : 'text-red-500'}`}>
                                     {report.clarityRating}
@@ -385,18 +401,18 @@ const TeachAI: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="bg-white p-8 rounded-3xl border-2 border-slate-200 shadow-sm">
-                            <h4 className="text-xl font-bold text-slate-800 mb-4">Feedback</h4>
+                        <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
+                            <h4 className="text-lg font-bold text-slate-800 mb-4">Feedback</h4>
                             <p className="text-slate-600 leading-relaxed font-medium">{report.feedback}</p>
                         </div>
 
                         {report.missedPoints && report.missedPoints.length > 0 && (
-                            <div className="bg-red-50 p-8 rounded-3xl border-2 border-red-100 shadow-sm">
+                            <div className="bg-red-50 p-8 rounded-xl border border-red-100 shadow-sm">
                                 <div className="flex items-center gap-3 mb-4">
-                                    <XCircleIcon className="w-6 h-6 text-red-500" />
-                                    <h4 className="text-xl font-bold text-red-800">Missed Concepts</h4>
+                                    <XCircleIcon className="w-5 h-5 text-red-500" />
+                                    <h4 className="text-lg font-bold text-red-700">Missed Concepts</h4>
                                 </div>
-                                <ul className="list-disc list-inside space-y-2 text-red-700 font-medium">
+                                <ul className="list-disc list-inside space-y-2 text-red-600 font-medium">
                                     {report.missedPoints.map((point, i) => (
                                         <li key={i}>{point}</li>
                                     ))}

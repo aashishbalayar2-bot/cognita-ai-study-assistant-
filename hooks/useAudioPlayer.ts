@@ -16,7 +16,9 @@ export const useAudioPlayer = ({ sampleRate }: UseAudioPlayerProps) => {
 
         return () => {
             // Cleanup on unmount
-            audioContextRef.current?.close();
+            if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+                audioContextRef.current.close();
+            }
         };
     }, [sampleRate]);
 
